@@ -1,12 +1,13 @@
-"""Windows GUI: listen to a WASAPI output and display local detections."""
+"""Windows GUI: listen only to the Overwatch process and display local detections."""
 import queue
 import threading
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
 import numpy as np
-import pyaudiowpatch as pa
-from detector import Detector, LABELS, mono_resample
+import time
+from process_audio import ProcessAudio, find_overwatch
+from detector import Detector, LABELS
 
 
 class App:
@@ -21,18 +22,8 @@ class App:
         body = ttk.Frame(root, padding=18)
         body.pack(fill='both', expand=True)
         ttk.Label(body, text='② / ③ の音を検知して、ここに表示します', font=('', 15)).pack(anchor='w')
-        ttk.Label(body, text='PCの再生音を使用 • マイク不使用 • 録音保存なし • Discord送信なし').pack(anchor='w', pady=(5, 14))
-        with pa.PyAudio() as audio:
-            self.devices = list(audio.get_loopback_device_info_generator())
-            try:
-                default = audio.get_default_wasapi_loopback()['index']
-            except OSError:
-                default = None
-        self.device = ttk.Combobox(body, state='readonly', width=75,
-                                  values=[d['name'] for d in self.devices])
-        self.device.pack(fill='x')
-        if self.devices:
-            self.device.current(next((i for i, d in enumerate(self.devices) if d['index'] == default), 0))
+        ttk.Label(body, text='OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord送信なし').pack(anchor='w', pady=(5, 14))
+        ttk.Label(body, text='Overwatch.exe を自動選択 • YouTube / Discord の再生音は対象外').pack(anchor='w')
         options = ttk.Frame(body)
         options.pack(fill='x', pady=12)
         ttk.Label(options, text='検知しきい値').pack(side='left')
@@ -45,7 +36,7 @@ class App:
         self.start_button.pack(side='left')
         self.stop_button = ttk.Button(buttons, text='停止', command=self.stop.set, state='disabled')
         self.stop_button.pack(side='left', padx=8)
-        self.status = tk.StringVar(value='停止中 — ゲームの音声出力先を選んで開始してください')
+        self.status = tk.StringVar(value='停止中 — Overwatchを起動して「検知開始」を押してください')
         ttk.Label(body, textvariable=self.status, wraplength=630).pack(anchor='w', pady=12)
         self.scores = tk.StringVar(value='② —   ③ —')
         ttk.Label(body, textvariable=self.scores).pack(anchor='w')
@@ -61,39 +52,38 @@ class App:
             threshold = float(self.threshold.get())
             if not .5 <= threshold <= 1:
                 raise ValueError('しきい値は0.50〜1.00で指定してください。')
-            if self.device.current() < 0:
-                raise ValueError('音声出力デバイスがありません。')
-            device = self.devices[self.device.current()].copy()
-        except ValueError as exc:
+            pid = find_overwatch()
+        except (ValueError, OSError, RuntimeError) as exc:
             messagebox.showerror('設定を確認', str(exc))
             return
         self.stop.clear()
         self.start_button.config(state='disabled')
-        self.device.config(state='disabled')
         self.stop_button.config(state='normal')
-        self.status.set('音声デバイスを開いています…')
-        self.worker = threading.Thread(target=self.listen, args=(device, threshold), daemon=True)
+        self.status.set('OW専用の音声取得を開始しています…')
+        self.worker = threading.Thread(target=self.listen, args=(pid, threshold), daemon=True)
         self.worker.start()
 
-    def listen(self, device, threshold):
+    def listen(self, pid, threshold):
         try:
-            detector = Detector(threshold)
-            rate, channels = int(device['defaultSampleRate']), int(device['maxInputChannels'])
-            with pa.PyAudio() as audio:
-                stream = audio.open(format=pa.paInt16, channels=channels, rate=rate,
-                    input=True, input_device_index=device['index'], frames_per_buffer=rate//10)
-                try:
-                    self.messages.put(('status', '検知中 — ' + device['name']))
-                    while not self.stop.is_set():
-                        raw = stream.read(rate//10, exception_on_overflow=True)
-                        samples = np.frombuffer(raw, dtype='<i2').reshape(-1, channels) / 32768.
-                        events, scores = detector.feed(mono_resample(samples, rate))
-                        self.messages.put(('scores', scores))
-                        for event in events:
+            detector = Detector(threshold, cooldown=0)
+            last_event = -float('inf')
+            last_audio = time.monotonic()
+            with ProcessAudio(pid) as audio:
+                for raw in audio.blocks(self.stop):
+                    if raw is None:
+                        self.messages.put(('status', f'検知中 — Overwatchのみ (PID {pid})'))
+                        continue
+                    now = time.monotonic()
+                    if now - last_audio > .5:
+                        detector = Detector(threshold, cooldown=0)
+                    last_audio = now
+                    samples = np.frombuffer(raw, dtype='<i2').astype(np.float32) / 32768.
+                    events, scores = detector.feed(samples)
+                    self.messages.put(('scores', scores))
+                    for event in events:
+                        if now - last_event >= 30:
+                            last_event = now
                             self.messages.put(('event', event))
-                finally:
-                    stream.stop_stream()
-                    stream.close()
         except Exception as exc:
             self.messages.put(('error', str(exc)))
         finally:
@@ -119,10 +109,9 @@ class App:
                     self.append(text)
                 elif kind == 'error':
                     self.status.set('音声入力エラー — 停止しました')
-                    self.append('エラー: ' + value + '\n出力デバイスを確認して再開してください。')
+                    self.append('エラー: ' + value + '\nOverwatchを確認して検知を再開してください。')
                 elif kind == 'done':
                     self.start_button.config(state='normal')
-                    self.device.config(state='readonly')
                     self.stop_button.config(state='disabled')
                     if self.stop.is_set():
                         self.status.set('停止中')
