@@ -1,5 +1,13 @@
 """UI translations only; changing language does not change audio templates."""
 ENGLISH = {
+    'マッチング待機中…': 'Waiting for a match…',
+    '最後にマッチングした時間: まだ検知していません': 'Last match detected: none yet',
+    '最後にマッチングした時間: {timestamp}': 'Last match detected: {timestamp}',
+    'Overwatch起動中のみ利用できます。先にゲームを起動してください。':
+        'Only available while Overwatch is running. Please launch the game first.',
+    'Overwatchを起動してください': 'Please launch Overwatch',
+    'Overwatchが起動していません。Overwatchを起動してから「検知開始」を押してください。':
+        'Overwatch is not running. Please launch Overwatch, then click Start detection.',
     'Overwatchが起動していません。ゲームを起動してから検知開始を押してください。':
         'Overwatch is not running. Open the game, then click Start detection.',
     'Overwatchが複数あります。1つだけ起動した状態で検知を開始してください。':
