@@ -86,7 +86,7 @@ class DiagnosticTests(unittest.TestCase):
         while time.monotonic() < deadline:
             self.root.update()
             time.sleep(.02)
-        self.assertEqual(self.app.notification.get(), 'マッチング待機中…')
+        self.assertEqual(self.app.notification.get(), 'マッチ成立音を検知中…')
         self.assertEqual(self.app.last_match.get(), '最後にマッチングした時間: 2026/10/08 12:34:56')
         self.assertEqual(self.app.notification_hint.get(), '')
         self.assertEqual(self.app.status.get(), '検知中')
@@ -155,12 +155,12 @@ class DiagnosticTests(unittest.TestCase):
     def test_waiting_and_last_match_translate_and_remain_after_stop(self):
         self.app.messages.put(('status', 123))
         self.app.poll()
-        self.assertEqual(self.app.notification.get(), 'マッチング待機中…')
+        self.assertEqual(self.app.notification.get(), 'マッチ成立音を検知中…')
         self.app.show_match(datetime(2026, 10, 8, 12, 34, 56))
         self.app.clear_notification()
         self.app.language.set('ENG')
         self.app.change_language()
-        self.assertEqual(self.app.notification.get(), 'Waiting for a match…')
+        self.assertEqual(self.app.notification.get(), 'Listening for the match-found sound…')
         self.assertEqual(self.app.last_match.get(), 'Last match detected: 2026/10/08 12:34:56')
         self.app.messages.put(('done', None))
         self.app.poll()
