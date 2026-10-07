@@ -10,6 +10,11 @@ HELPER = Path(__file__).with_name('ProcessAudio.exe')
 FLAGS = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
 
+class OverwatchNotRunningError(ValueError):
+    def __init__(self):
+        super().__init__('Overwatchが起動していません。Overwatchを起動してから「検知開始」を押してください。')
+
+
 def find_overwatch():
     result = subprocess.run([str(HELPER), '--list'], capture_output=True, timeout=5,
                             creationflags=FLAGS, text=True, encoding='utf-8', errors='replace')
@@ -17,7 +22,7 @@ def find_overwatch():
         raise RuntimeError(result.stderr.strip())
     ids = [int(line) for line in result.stdout.splitlines() if line.strip().isdigit()]
     if not ids:
-        raise ValueError('Overwatchが起動していません。ゲームを起動してから検知開始を押してください。')
+        raise OverwatchNotRunningError()
     if len(ids) != 1:
         raise ValueError('Overwatchが複数あります。1つだけ起動した状態で検知を開始してください。')
     return ids[0]
