@@ -22,6 +22,7 @@ class App:
         self.stop = threading.Event()
         self.worker = None
         self.closing = False
+        self.notification_timer = None
         self.last_input = None
         self.last_wait_log = 0.
         self.received_seconds = 0.
@@ -56,11 +57,20 @@ class App:
         self.stop_button.pack(side='left', padx=8)
         self.status = tk.StringVar(value='停止中 — Overwatchを起動して「検知開始」を押してください')
         ttk.Label(body, textvariable=self.status, wraplength=630).pack(anchor='w', pady=12)
-        self.scores = tk.StringVar(value='② —   ③ —')
-        ttk.Label(body, textvariable=self.scores).pack(anchor='w')
+        self.tabs = ttk.Notebook(body)
+        self.tabs.pack(fill='both', expand=True)
+        monitor = ttk.Frame(self.tabs, padding=12)
+        details = ttk.Frame(self.tabs, padding=12)
+        self.tabs.add(monitor, text='検知画面')
+        self.tabs.add(details, text='詳細ログ')
         self.input_status = tk.StringVar(value='音声受信: 未開始')
-        ttk.Label(body, textvariable=self.input_status, wraplength=680).pack(anchor='w', pady=5)
-        self.log = tk.Text(body, height=10, state='disabled', wrap='word')
+        ttk.Label(monitor, textvariable=self.input_status, font=('', 15), wraplength=630).pack(anchor='w', pady=5)
+        self.notification = tk.StringVar(value='')
+        ttk.Label(monitor, textvariable=self.notification, font=('', 26, 'bold'),
+                  foreground='#16803c', anchor='center', wraplength=630).pack(fill='both', expand=True)
+        self.scores = tk.StringVar(value='② —   ③ —')
+        ttk.Label(details, textvariable=self.scores, wraplength=630).pack(anchor='w')
+        self.log = tk.Text(details, height=10, state='disabled', wrap='word')
         self.log.pack(fill='both', expand=True, pady=(10, 0))
         self.append('準備完了。検知開始後は、開始・音声受信・一致度をここに表示します。')
         root.protocol('WM_DELETE_WINDOW', self.close)
@@ -79,6 +89,7 @@ class App:
             messagebox.showerror('設定を確認', str(exc))
             return
         self.stop.clear()
+        self.clear_notification()
         self.received_seconds = 0.
         self.maximum_scores = dict.fromkeys(LABELS, 0.)
         self.last_input = time.monotonic()
@@ -143,6 +154,18 @@ class App:
         self.log.see('end')
         self.log.config(state='disabled')
 
+    def clear_notification(self):
+        if self.notification_timer is not None:
+            self.root.after_cancel(self.notification_timer)
+            self.notification_timer = None
+        self.notification.set('')
+
+    def show_match(self):
+        self.clear_notification()
+        self.notification.set('マッチが見つかりました！')
+        self.tabs.select(0)
+        self.notification_timer = self.root.after(5000, self.clear_notification)
+
     def poll(self):
         try:
             while True:
@@ -153,12 +176,12 @@ class App:
                 elif kind == 'input':
                     self.last_input = time.monotonic()
                     self.received_seconds += value
+                    self.input_status.set(f'音声取得中… {int(self.received_seconds + 1e-6)}秒')
                 elif kind == 'diagnostic':
                     for key, score in value['scores'].items():
                         self.maximum_scores[key] = max(self.maximum_scores[key], score)
                     text = (f"音声受信 {value['seconds']:.1f}秒 / 入力ピーク {value['db']:.0f} dBFS / "
                             f"区間最大 ② {value['scores']['match']:.2f}・③ {value['scores']['stadium']:.2f}")
-                    self.input_status.set(text)
                     self.append(text)
                 elif kind == 'scores':
                     for key, score in value.items():
@@ -166,12 +189,13 @@ class App:
                     self.scores.set('   '.join(f'{LABELS[k]}: {v:.2f}' for k, v in value.items()))
                 elif kind == 'event':
                     text = f"{datetime.now():%H:%M:%S} マッチが見つかりました！ {LABELS[value['sound']]} ({value['score']:.2f})"
-                    self.status.set(text)
+                    self.show_match()
                     self.append(text)
                 elif kind == 'error':
                     self.status.set('音声入力エラー — 停止しました')
                     self.append('エラー: ' + value + '\nOverwatchを確認して検知を再開してください。')
                 elif kind == 'done':
+                    self.input_status.set(f'音声取得終了 — {int(self.received_seconds + 1e-6)}秒')
                     self.append(f"監視終了: 受信 {self.received_seconds:.1f}秒 / 最大一致度 "
                                 f"② {self.maximum_scores['match']:.2f}・③ {self.maximum_scores['stadium']:.2f}")
                     self.start_button.config(state='normal')
@@ -193,6 +217,7 @@ class App:
 
     def close(self):
         self.closing = True
+        self.clear_notification()
         self.stop.set()
 
 
