@@ -1,6 +1,6 @@
 """UI translations only; changing language does not change audio templates."""
 ENGLISH = {
-    'マッチング待機中…': 'Waiting for a match…',
+    'マッチ成立音を検知中…': 'Listening for the match-found sound…',
     '最後にマッチングした時間: まだ検知していません': 'Last match detected: none yet',
     '最後にマッチングした時間: {timestamp}': 'Last match detected: {timestamp}',
     'Overwatch起動中のみ利用できます。先にゲームを起動してください。':
