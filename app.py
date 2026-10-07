@@ -256,7 +256,7 @@ class App:
         if self.notification_timer is not None:
             self.root.after_cancel(self.notification_timer)
             self.notification_timer = None
-        self.notification.set(self.tr('マッチング待機中…' if self.capture_active else '停止中'))
+        self.notification.set(self.tr('マッチ成立音を検知中…' if self.capture_active else '停止中'))
         self.notification_hint.set('')
 
     def show_match(self, detected_at=None):
