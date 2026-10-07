@@ -12,22 +12,17 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from process_audio import ProcessAudio, find_overwatch
 from detector import Detector, LABELS
-
-
-def format_duration(seconds):
-    total = max(0, int(seconds + 1e-6))
-    minutes, seconds = divmod(total, 60)
-    hours, minutes = divmod(minutes, 60)
-    if hours:
-        return f'{hours}時間{minutes}分{seconds}秒'
-    if minutes:
-        return f'{minutes}分{seconds}秒'
-    return f'{seconds}秒'
+from language import translate, format_duration
 
 
 class App:
     def __init__(self, root):
         self.root = root
+        self.language = tk.StringVar(value='JPN')
+        self.translated_widgets = []
+        self.translated_values = {}
+        self.log_entries = []
+        self.current_scores = None
         root.title('Overwatch Stadium — 音検知テスト')
         root.geometry('840x600')
         root.minsize(840, 600)
@@ -63,15 +58,22 @@ class App:
                 self.logger.addHandler(logging.NullHandler())
         body = ttk.Frame(root, padding=18)
         body.pack(fill='both', expand=True)
-        ttk.Label(body, text='音を検知して、ここに表示します', font=(self.font_family, 17, 'bold')).pack(anchor='w')
-        ttk.Label(body, text='OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord送信なし').pack(anchor='w', pady=(5, 14))
-        ttk.Label(body, text='Overwatch.exe を自動選択 • YouTube / Discord の再生音は対象外').pack(anchor='w')
+        language_bar = ttk.Frame(body)
+        language_bar.pack(fill='x')
+        ttk.Label(language_bar, text='Language / 言語').pack(side='left')
+        self.language_selector = ttk.Combobox(language_bar, textvariable=self.language,
+                                              values=('JPN', 'ENG'), state='readonly', width=5)
+        self.language_selector.pack(side='left', padx=8)
+        self.language_selector.bind('<<ComboboxSelected>>', self.change_language)
+        self.label(body, '音を検知して、ここに表示します', font=(self.font_family, 17, 'bold')).pack(anchor='w')
+        self.label(body, 'OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord送信なし', wraplength=780).pack(anchor='w', pady=(5, 14))
+        self.label(body, 'Overwatch.exe を自動選択 • YouTube / Discord の再生音は対象外', wraplength=780).pack(anchor='w')
         options = ttk.Frame(body)
         options.pack(fill='x', pady=12)
-        ttk.Label(options, text='検知しきい値').pack(side='left')
+        self.label(options, '検知しきい値').pack(side='left')
         self.threshold = tk.StringVar(value='0.90')
         ttk.Entry(options, textvariable=self.threshold, width=7, font=(self.font_family, 11)).pack(side='left', padx=8)
-        ttk.Label(options, text='連続通知を抑える時間: 30秒').pack(side='left')
+        self.label(options, '連続通知を抑える時間: 30秒').pack(side='left')
         buttons = ttk.Frame(body)
         buttons.pack(fill='x')
         self.start_button = ttk.Button(buttons, text='検知開始', command=self.start)
@@ -91,14 +93,59 @@ class App:
         self.notification = tk.StringVar(value='')
         ttk.Label(monitor, textvariable=self.notification, font=(self.font_family, 28, 'bold'),
                   foreground='#12652e', anchor='center', wraplength=740).pack(fill='both', expand=True)
+        self.notification_hint = tk.StringVar(value='')
+        ttk.Label(monitor, textvariable=self.notification_hint, anchor='center',
+                  wraplength=740).pack(fill='x', pady=(0, 12))
         self.scores = tk.StringVar(value='② —   ③ —')
         ttk.Label(details, textvariable=self.scores, wraplength=630).pack(anchor='w')
         self.log = tk.Text(details, height=10, state='disabled', wrap='word',
                            font=(self.font_family, 11), padx=10, pady=8, spacing1=3, spacing3=3)
         self.log.pack(fill='both', expand=True, pady=(10, 0))
+        self.set_text(self.status, '停止中 — Overwatchを起動して「検知開始」を押してください')
+        self.set_text(self.input_status, '音声受信: 未開始')
         self.append('準備完了。検知開始後は、開始・音声受信・一致度をここに表示します。')
         root.protocol('WM_DELETE_WINDOW', self.close)
         root.after(100, self.poll)
+
+    def tr(self, text, **values):
+        values = values.copy()
+        if 'seconds' in values:
+            values['duration'] = format_duration(values.pop('seconds'), self.language.get())
+        if 'sound' in values:
+            values['sound'] = translate(LABELS[values['sound']], self.language.get())
+        if 'error' in values:
+            values['error'] = translate(values['error'], self.language.get())
+        return translate(text, self.language.get()).format(**values)
+
+    def label(self, parent, text, **options):
+        widget = ttk.Label(parent, text=self.tr(text), **options)
+        self.translated_widgets.append((widget, text))
+        return widget
+
+    def set_text(self, variable, text, **values):
+        self.translated_values[str(variable)] = (variable, text, values)
+        variable.set(self.tr(text, **values))
+
+    def change_language(self, _event=None):
+        self.root.title(self.tr('Overwatch Stadium — 音検知テスト'))
+        for widget, text in self.translated_widgets:
+            widget.configure(text=self.tr(text))
+        for variable, text, values in self.translated_values.values():
+            variable.set(self.tr(text, **values))
+        self.start_button.configure(text=self.tr('検知開始'))
+        self.stop_button.configure(text=self.tr('停止'))
+        self.tabs.tab(0, text=self.tr('検知画面'))
+        self.tabs.tab(1, text=self.tr('詳細ログ'))
+        if self.notification.get():
+            self.notification.set(self.tr('マッチが見つかりました！'))
+            self.notification_hint.set(self.tr('この表示は5秒後に自動で消えます'))
+        self.render_scores()
+        self.render_log()
+
+    def render_scores(self):
+        self.scores.set('② —   ③ —' if self.current_scores is None else
+                        '   '.join(f'{self.tr(LABELS[k])}: {v:.2f}'
+                                   for k, v in self.current_scores.items()))
 
     def start(self):
         if self.worker and self.worker.is_alive():
@@ -109,8 +156,8 @@ class App:
                 raise ValueError('しきい値は0.50〜1.00で指定してください。')
             pid = find_overwatch()
         except (ValueError, OSError, RuntimeError) as exc:
-            self.append('開始できません: ' + str(exc))
-            messagebox.showerror('設定を確認', str(exc))
+            self.append('開始できません: {error}', error=str(exc))
+            messagebox.showerror(self.tr('設定を確認'), translate(str(exc), self.language.get()))
             return
         self.stop.clear()
         self.clear_notification()
@@ -118,12 +165,13 @@ class App:
         self.maximum_scores = dict.fromkeys(LABELS, 0.)
         self.last_input = time.monotonic()
         self.last_wait_log = self.last_input
-        self.input_status.set('音声受信: 接続待ち')
+        self.set_text(self.input_status, '音声受信: 接続待ち')
+        self.current_scores = None
         self.scores.set('② —   ③ —')
-        self.append(f'検知開始を受付: Overwatch PID {pid} / しきい値 {threshold:.2f}')
+        self.append('検知開始を受付: Overwatch PID {pid} / しきい値 {threshold:.2f}', pid=pid, threshold=threshold)
         self.start_button.config(state='disabled')
         self.stop_button.config(state='normal')
-        self.status.set('OW専用の音声取得を開始しています…')
+        self.set_text(self.status, 'OW専用の音声取得を開始しています…')
         self.worker = threading.Thread(target=self.listen, args=(pid, threshold), daemon=True)
         self.worker.start()
 
@@ -139,7 +187,7 @@ class App:
             with ProcessAudio(pid) as audio:
                 for raw in audio.blocks(self.stop):
                     if raw is None:
-                        self.messages.put(('status', f'検知中 — Overwatchのみ (PID {pid})'))
+                        self.messages.put(('status', pid))
                         continue
                     now = time.monotonic()
                     if now - last_audio > .5:
@@ -169,12 +217,17 @@ class App:
         finally:
             self.messages.put(('done', None))
 
-    def append(self, text):
-        self.logger.info(text)
+    def append(self, text, **values):
+        self.logger.info(self.tr(text, **values))
+        self.log_entries.append((datetime.now().strftime('%H:%M:%S'), text, values))
+        self.log_entries = self.log_entries[-500:]
+        self.render_log()
+
+    def render_log(self):
         self.log.config(state='normal')
-        self.log.insert('end', f'{datetime.now():%H:%M:%S} {text}\n')
-        if int(self.log.index('end-1c').split('.')[0]) > 500:
-            self.log.delete('1.0', '101.0')
+        self.log.delete('1.0', 'end')
+        self.log.insert('end', ''.join(f'{stamp} {self.tr(text, **values)}\n'
+                                      for stamp, text, values in self.log_entries))
         self.log.see('end')
         self.log.config(state='disabled')
 
@@ -183,10 +236,12 @@ class App:
             self.root.after_cancel(self.notification_timer)
             self.notification_timer = None
         self.notification.set('')
+        self.notification_hint.set('')
 
     def show_match(self):
         self.clear_notification()
-        self.notification.set('マッチが見つかりました！')
+        self.notification.set(self.tr('マッチが見つかりました！'))
+        self.notification_hint.set(self.tr('この表示は5秒後に自動で消えます'))
         self.tabs.select(0)
         self.notification_timer = self.root.after(5000, self.clear_notification)
 
@@ -195,43 +250,42 @@ class App:
             while True:
                 kind, value = self.messages.get_nowait()
                 if kind == 'status':
-                    self.status.set(value)
-                    self.append(value)
+                    self.set_text(self.status, '検知中 — Overwatchのみ (PID {pid})', pid=value)
+                    self.append('検知中 — Overwatchのみ (PID {pid})', pid=value)
                 elif kind == 'input':
                     self.last_input = time.monotonic()
                     self.received_seconds += value
-                    self.input_status.set(f'音声取得中… {format_duration(self.received_seconds)}')
+                    self.set_text(self.input_status, '音声取得中… {duration}', seconds=self.received_seconds)
                 elif kind == 'diagnostic':
                     for key, score in value['scores'].items():
                         self.maximum_scores[key] = max(self.maximum_scores[key], score)
-                    text = (f"音声受信 {format_duration(value['seconds'])} / 入力ピーク {value['db']:.0f} dBFS / "
-                            f"区間最大 ② {value['scores']['match']:.2f}・③ {value['scores']['stadium']:.2f}")
-                    self.append(text)
+                    self.append('音声受信 {duration} / 入力ピーク {db:.0f} dBFS / 区間最大 ② {match:.2f}・③ {stadium:.2f}',
+                                seconds=value['seconds'], db=value['db'], **value['scores'])
                 elif kind == 'scores':
                     for key, score in value.items():
                         self.maximum_scores[key] = max(self.maximum_scores[key], score)
-                    self.scores.set('   '.join(f'{LABELS[k]}: {v:.2f}' for k, v in value.items()))
+                    self.current_scores = value.copy()
+                    self.render_scores()
                 elif kind == 'event':
-                    text = f"{datetime.now():%H:%M:%S} マッチが見つかりました！ {LABELS[value['sound']]} ({value['score']:.2f})"
                     self.show_match()
-                    self.append(text)
+                    self.append('マッチが見つかりました！ {sound} ({score:.2f})', sound=value['sound'], score=value['score'])
                 elif kind == 'error':
-                    self.status.set('音声入力エラー — 停止しました')
-                    self.append('エラー: ' + value + '\nOverwatchを確認して検知を再開してください。')
+                    self.set_text(self.status, '音声入力エラー — 停止しました')
+                    self.append('エラー: {error}\nOverwatchを確認して検知を再開してください。', error=value)
                 elif kind == 'done':
-                    self.input_status.set(f'音声取得終了 — {format_duration(self.received_seconds)}')
-                    self.append(f"監視終了: 受信 {format_duration(self.received_seconds)} / 最大一致度 "
-                                f"② {self.maximum_scores['match']:.2f}・③ {self.maximum_scores['stadium']:.2f}")
+                    self.set_text(self.input_status, '音声取得終了 — {duration}', seconds=self.received_seconds)
+                    self.append('監視終了: 受信 {duration} / 最大一致度 ② {match:.2f}・③ {stadium:.2f}',
+                                seconds=self.received_seconds, **self.maximum_scores)
                     self.start_button.config(state='normal')
                     self.stop_button.config(state='disabled')
                     if self.stop.is_set():
-                        self.status.set('停止中')
+                        self.set_text(self.status, '停止中')
         except queue.Empty:
             pass
         now = time.monotonic()
         if (self.worker and self.worker.is_alive() and self.last_input is not None
                 and now - self.last_input >= 5 and now - self.last_wait_log >= 10):
-            self.input_status.set('音声データ待ち — OW側で音が鳴っているか確認してください')
+            self.set_text(self.input_status, '音声データ待ち — OW側で音が鳴っているか確認してください')
             self.append('音声データが5秒以上届いていません。OWが無音の場合もこの表示になります。')
             self.last_wait_log = now
         if self.closing and (not self.worker or not self.worker.is_alive()):
@@ -249,4 +303,3 @@ if __name__ == '__main__':
     root = tk.Tk()
     App(root)
     root.mainloop()
-
