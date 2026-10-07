@@ -4,6 +4,7 @@ import threading
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 import numpy as np
 import time
 import logging
@@ -17,7 +18,18 @@ class App:
     def __init__(self, root):
         self.root = root
         root.title('Overwatch Stadium — 音検知テスト')
-        root.geometry('740x520')
+        root.geometry('840x600')
+        root.minsize(840, 600)
+        available_fonts = set(tkfont.families(root))
+        self.font_family = next((name for name in ('Meiryo', 'メイリオ', 'Yu Gothic UI')
+                                 if name in available_fonts),
+                                tkfont.nametofont('TkDefaultFont').actual('family'))
+        for name in ('TkDefaultFont', 'TkTextFont', 'TkMenuFont', 'TkHeadingFont'):
+            tkfont.nametofont(name).configure(family=self.font_family, size=11)
+        style = ttk.Style(root)
+        style.configure('.', font=(self.font_family, 11))
+        style.configure('TButton', padding=(12, 6))
+        style.configure('TNotebook.Tab', padding=(14, 7))
         self.messages = queue.Queue()
         self.stop = threading.Event()
         self.worker = None
@@ -40,14 +52,14 @@ class App:
                 self.logger.addHandler(logging.NullHandler())
         body = ttk.Frame(root, padding=18)
         body.pack(fill='both', expand=True)
-        ttk.Label(body, text='音を検知して、ここに表示します', font=('', 15)).pack(anchor='w')
+        ttk.Label(body, text='音を検知して、ここに表示します', font=(self.font_family, 17, 'bold')).pack(anchor='w')
         ttk.Label(body, text='OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord送信なし').pack(anchor='w', pady=(5, 14))
         ttk.Label(body, text='Overwatch.exe を自動選択 • YouTube / Discord の再生音は対象外').pack(anchor='w')
         options = ttk.Frame(body)
         options.pack(fill='x', pady=12)
         ttk.Label(options, text='検知しきい値').pack(side='left')
         self.threshold = tk.StringVar(value='0.90')
-        ttk.Entry(options, textvariable=self.threshold, width=7).pack(side='left', padx=8)
+        ttk.Entry(options, textvariable=self.threshold, width=7, font=(self.font_family, 11)).pack(side='left', padx=8)
         ttk.Label(options, text='連続通知を抑える時間: 30秒').pack(side='left')
         buttons = ttk.Frame(body)
         buttons.pack(fill='x')
@@ -64,13 +76,14 @@ class App:
         self.tabs.add(monitor, text='検知画面')
         self.tabs.add(details, text='詳細ログ')
         self.input_status = tk.StringVar(value='音声受信: 未開始')
-        ttk.Label(monitor, textvariable=self.input_status, font=('', 15), wraplength=630).pack(anchor='w', pady=5)
+        ttk.Label(monitor, textvariable=self.input_status, font=(self.font_family, 16), wraplength=740).pack(anchor='w', pady=5)
         self.notification = tk.StringVar(value='')
-        ttk.Label(monitor, textvariable=self.notification, font=('', 26, 'bold'),
-                  foreground='#16803c', anchor='center', wraplength=630).pack(fill='both', expand=True)
+        ttk.Label(monitor, textvariable=self.notification, font=(self.font_family, 28, 'bold'),
+                  foreground='#12652e', anchor='center', wraplength=740).pack(fill='both', expand=True)
         self.scores = tk.StringVar(value='② —   ③ —')
         ttk.Label(details, textvariable=self.scores, wraplength=630).pack(anchor='w')
-        self.log = tk.Text(details, height=10, state='disabled', wrap='word')
+        self.log = tk.Text(details, height=10, state='disabled', wrap='word',
+                           font=(self.font_family, 11), padx=10, pady=8, spacing1=3, spacing3=3)
         self.log.pack(fill='both', expand=True, pady=(10, 0))
         self.append('準備完了。検知開始後は、開始・音声受信・一致度をここに表示します。')
         root.protocol('WM_DELETE_WINDOW', self.close)
@@ -225,3 +238,4 @@ if __name__ == '__main__':
     root = tk.Tk()
     App(root)
     root.mainloop()
+
