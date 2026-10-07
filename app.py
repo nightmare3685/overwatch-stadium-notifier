@@ -14,6 +14,17 @@ from process_audio import ProcessAudio, find_overwatch
 from detector import Detector, LABELS
 
 
+def format_duration(seconds):
+    total = max(0, int(seconds + 1e-6))
+    minutes, seconds = divmod(total, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f'{hours}時間{minutes}分{seconds}秒'
+    if minutes:
+        return f'{minutes}分{seconds}秒'
+    return f'{seconds}秒'
+
+
 class App:
     def __init__(self, root):
         self.root = root
@@ -189,11 +200,11 @@ class App:
                 elif kind == 'input':
                     self.last_input = time.monotonic()
                     self.received_seconds += value
-                    self.input_status.set(f'音声取得中… {int(self.received_seconds + 1e-6)}秒')
+                    self.input_status.set(f'音声取得中… {format_duration(self.received_seconds)}')
                 elif kind == 'diagnostic':
                     for key, score in value['scores'].items():
                         self.maximum_scores[key] = max(self.maximum_scores[key], score)
-                    text = (f"音声受信 {value['seconds']:.1f}秒 / 入力ピーク {value['db']:.0f} dBFS / "
+                    text = (f"音声受信 {format_duration(value['seconds'])} / 入力ピーク {value['db']:.0f} dBFS / "
                             f"区間最大 ② {value['scores']['match']:.2f}・③ {value['scores']['stadium']:.2f}")
                     self.append(text)
                 elif kind == 'scores':
@@ -208,8 +219,8 @@ class App:
                     self.status.set('音声入力エラー — 停止しました')
                     self.append('エラー: ' + value + '\nOverwatchを確認して検知を再開してください。')
                 elif kind == 'done':
-                    self.input_status.set(f'音声取得終了 — {int(self.received_seconds + 1e-6)}秒')
-                    self.append(f"監視終了: 受信 {self.received_seconds:.1f}秒 / 最大一致度 "
+                    self.input_status.set(f'音声取得終了 — {format_duration(self.received_seconds)}')
+                    self.append(f"監視終了: 受信 {format_duration(self.received_seconds)} / 最大一致度 "
                                 f"② {self.maximum_scores['match']:.2f}・③ {self.maximum_scores['stadium']:.2f}")
                     self.start_button.config(state='normal')
                     self.stop_button.config(state='disabled')
