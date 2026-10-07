@@ -26,6 +26,9 @@ class DiagnosticTests(unittest.TestCase):
         self.app = App(self.root)
 
     def tearDown(self):
+        for timer in self.root.tk.call('after', 'info'):
+            self.root.after_cancel(timer)
+        self.root.update_idletasks()
         self.root.destroy()
 
     def test_successful_capture_logs_without_detection(self):
@@ -62,12 +65,14 @@ class DiagnosticTests(unittest.TestCase):
         self.app.messages.put(('event', {'sound': 'match', 'score': .95}))
         self.app.poll()
         self.assertEqual(self.app.notification.get(), 'マッチが見つかりました！')
+        self.assertEqual(self.app.notification_hint.get(), 'この表示は5秒後に自動で消えます')
         self.assertEqual(self.app.tabs.index(self.app.tabs.select()), 0)
         deadline = time.monotonic() + 5.2
         while time.monotonic() < deadline:
             self.root.update()
             time.sleep(.02)
         self.assertEqual(self.app.notification.get(), '')
+        self.assertEqual(self.app.notification_hint.get(), '')
         self.assertEqual(self.app.status.get(), '検知中')
         self.assertIn('マッチが見つかりました！', self.app.log.get('1.0', 'end'))
 
@@ -77,6 +82,47 @@ class DiagnosticTests(unittest.TestCase):
         self.app.show_match()
         self.assertNotEqual(previous_timer, self.app.notification_timer)
         self.assertNotIn(previous_timer, self.root.tk.call('after', 'info'))
+
+    def test_language_switch_preserves_capture_and_notification_timer(self):
+        self.app.messages.put(('status', 123))
+        self.app.messages.put(('input', 65))
+        self.app.messages.put(('scores', {'match': .95, 'stadium': .2}))
+        self.app.messages.put(('event', {'sound': 'match', 'score': .95}))
+        self.app.poll()
+        timer = self.app.notification_timer
+        self.app.language.set('ENG')
+        self.app.change_language()
+        self.assertEqual(self.app.input_status.get(), 'Capturing audio… 1m 5s')
+        self.assertEqual(self.app.notification.get(), 'Match found!')
+        self.assertEqual(self.app.notification_hint.get(), 'This message disappears automatically after 5 seconds.')
+        self.assertEqual(self.app.start_button.cget('text'), 'Start detection')
+        self.assertEqual(self.app.tabs.tab(1, 'text'), 'Detailed log')
+        self.assertIn('Overwatch only (PID 123)', self.app.status.get())
+        self.assertIn('Match-found sound', self.app.scores.get())
+        self.assertIn('Match found!', self.app.log.get('1.0', 'end'))
+        self.assertNotIn('マッチが見つかりました', self.app.log.get('1.0', 'end'))
+        self.assertEqual(self.app.notification_timer, timer)
+        self.app.language.set('JPN')
+        self.app.change_language()
+        self.assertEqual(self.app.input_status.get(), '音声取得中… 1分5秒')
+        self.assertEqual(self.app.notification.get(), 'マッチが見つかりました！')
+        self.assertEqual(self.app.notification_timer, timer)
+        self.assertEqual(self.app.received_seconds, 65)
+
+    def test_english_start_error_and_completed_capture(self):
+        self.app.language.set('ENG')
+        self.app.change_language()
+        error = 'Overwatchが起動していません。ゲームを起動してから検知開始を押してください。'
+        with patch('app.find_overwatch', side_effect=ValueError(error)), patch('app.messagebox.showerror') as dialog:
+            self.app.start()
+        self.assertEqual(dialog.call_args.args[0], 'Check settings')
+        self.assertIn('Overwatch is not running', dialog.call_args.args[1])
+        self.app.messages.put(('input', 3723))
+        self.app.messages.put(('done', None))
+        self.app.stop.set()
+        self.app.poll()
+        self.assertEqual(self.app.input_status.get(), 'Audio capture ended — 1h 2m 3s')
+        self.assertEqual(self.app.status.get(), 'Stopped')
 
     def test_waiting_for_audio_is_visible(self):
         class Worker:
