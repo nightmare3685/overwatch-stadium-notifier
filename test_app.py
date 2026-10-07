@@ -6,6 +6,9 @@ from unittest.mock import patch
 from app import App
 from detector import Detector, LABELS
 import numpy as np
+from datetime import datetime
+from process_audio import OverwatchNotRunningError, find_overwatch
+from types import SimpleNamespace
 
 
 class SilentAudio:
@@ -71,8 +74,10 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_match_is_immediate_and_expires_without_erasing_status_or_log(self):
         self.app.tabs.select(1)
+        self.app.capture_active = True
         self.app.status.set('検知中')
-        self.app.messages.put(('event', {'sound': 'match', 'score': .95}))
+        self.app.messages.put(('event', {'sound': 'match', 'score': .95,
+                                         'detected_at': datetime(2026, 10, 8, 12, 34, 56)}))
         self.app.poll()
         self.assertEqual(self.app.notification.get(), 'マッチが見つかりました！')
         self.assertEqual(self.app.notification_hint.get(), 'この表示は5秒後に自動で消えます')
@@ -81,7 +86,8 @@ class DiagnosticTests(unittest.TestCase):
         while time.monotonic() < deadline:
             self.root.update()
             time.sleep(.02)
-        self.assertEqual(self.app.notification.get(), '')
+        self.assertEqual(self.app.notification.get(), 'マッチング待機中…')
+        self.assertEqual(self.app.last_match.get(), '最後にマッチングした時間: 2026/10/08 12:34:56')
         self.assertEqual(self.app.notification_hint.get(), '')
         self.assertEqual(self.app.status.get(), '検知中')
         self.assertIn('マッチが見つかりました！', self.app.log.get('1.0', 'end'))
@@ -122,17 +128,44 @@ class DiagnosticTests(unittest.TestCase):
     def test_english_start_error_and_completed_capture(self):
         self.app.language.set('ENG')
         self.app.change_language()
-        error = 'Overwatchが起動していません。ゲームを起動してから検知開始を押してください。'
-        with patch('app.find_overwatch', side_effect=ValueError(error)), patch('app.messagebox.showerror') as dialog:
+        with patch('app.find_overwatch', side_effect=OverwatchNotRunningError()), patch('app.messagebox.showinfo') as dialog:
             self.app.start()
-        self.assertEqual(dialog.call_args.args[0], 'Check settings')
+        self.assertEqual(dialog.call_args.args[0], 'Please launch Overwatch')
         self.assertIn('Overwatch is not running', dialog.call_args.args[1])
+        self.assertEqual(self.app.status.get(), 'Please launch Overwatch')
         self.app.messages.put(('input', 3723))
         self.app.messages.put(('done', None))
         self.app.stop.set()
         self.app.poll()
         self.assertEqual(self.app.input_status.get(), 'Audio capture ended — 1h 2m 3s')
         self.assertEqual(self.app.status.get(), 'Stopped')
+
+    def test_missing_game_is_identified_and_guidance_survives_done(self):
+        with patch('process_audio.subprocess.run', return_value=SimpleNamespace(returncode=0, stdout='', stderr='')):
+            with self.assertRaises(OverwatchNotRunningError):
+                find_overwatch()
+        self.app.messages.put(('status', 123))
+        self.app.messages.put(('not_running', None))
+        self.app.messages.put(('done', None))
+        self.app.poll()
+        self.assertEqual(self.app.status.get(), 'Overwatchを起動してください')
+        self.assertEqual(self.app.notification.get(), '停止中')
+        self.assertFalse(self.app.capture_active)
+
+    def test_waiting_and_last_match_translate_and_remain_after_stop(self):
+        self.app.messages.put(('status', 123))
+        self.app.poll()
+        self.assertEqual(self.app.notification.get(), 'マッチング待機中…')
+        self.app.show_match(datetime(2026, 10, 8, 12, 34, 56))
+        self.app.clear_notification()
+        self.app.language.set('ENG')
+        self.app.change_language()
+        self.assertEqual(self.app.notification.get(), 'Waiting for a match…')
+        self.assertEqual(self.app.last_match.get(), 'Last match detected: 2026/10/08 12:34:56')
+        self.app.messages.put(('done', None))
+        self.app.poll()
+        self.assertEqual(self.app.notification.get(), 'Stopped')
+        self.assertIn('12:34:56', self.app.last_match.get())
 
     def test_waiting_for_audio_is_visible(self):
         class Worker:
