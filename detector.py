@@ -52,7 +52,13 @@ class Detector:
             raise ValueError('threshold は 0〜1、cooldown は0以上です。')
         path = templates or Path(__file__).with_name('templates.npz')
         with np.load(path, allow_pickle=False) as archive:
-            self.templates = {key: archive[key].copy() for key in LABELS}
+            self.templates = {key: archive[key].copy() for key in archive.files
+                              if key.split('__', 1)[0] in LABELS}
+        if not all(key in self.templates for key in LABELS):
+            raise ValueError('②・③の基本テンプレートが必要です。')
+        for template in self.templates.values():
+            if template.ndim != 2 or template.shape[1] != 64 or not len(template) or not np.isfinite(template).all():
+                raise ValueError('音声テンプレートの形式が不正です。')
         self.threshold, self.cooldown = threshold, cooldown
         self.last_event = -float('inf')
         self.history = np.empty((0, 64), dtype=np.float32)
@@ -69,8 +75,9 @@ class Detector:
         self.pending = self.pending[len(new) * HOP:]
         self.frame_count += len(new)
         self.history = np.concatenate((self.history, new))[-self.max_frames:]
-        scores = {}
-        for key, template in self.templates.items():
+        scores = dict.fromkeys(LABELS, 0.)
+        for template_key, template in self.templates.items():
+            key = template_key.split('__', 1)[0]
             n = len(template)
             score = 0.
             for lag in range(min(len(new), 10)):
@@ -78,7 +85,7 @@ class Detector:
                 if end >= n:
                     candidate = self.history[end-n:end]
                     score = max(score, float(np.sum(candidate * template) / n))
-            scores[key] = score
+            scores[key] = max(scores[key], score)
             self.max_scores[key] = max(self.max_scores[key], score)
         timestamp = (self.frame_count * HOP + FRAME - HOP) / RATE
         winner = max(scores, key=scores.get)

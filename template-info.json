@@ -1,0 +1,42 @@
+{
+  "primary_sample": 6,
+  "additional_samples": [
+    2,
+    3,
+    5
+  ],
+  "excluded_training_samples": [
+    1,
+    4
+  ],
+  "threshold": 0.9,
+  "stadium_template_retained": true,
+  "previous_confirmed_match_templates_retained": true,
+  "samples": [
+    {
+      "sample": 6,
+      "template": "match",
+      "source_start_seconds": 119.79,
+      "duration_seconds": 0.54
+    },
+    {
+      "sample": 2,
+      "template": "match__approved_2",
+      "source_start_seconds": 33.58,
+      "duration_seconds": 0.54
+    },
+    {
+      "sample": 3,
+      "template": "match__approved_3",
+      "source_start_seconds": 56.71,
+      "duration_seconds": 0.54
+    },
+    {
+      "sample": 5,
+      "template": "match__approved_5",
+      "source_start_seconds": 108.68,
+      "duration_seconds": 0.54
+    }
+  ],
+  "contains_waveform_audio": false
+}

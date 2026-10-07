@@ -1,0 +1,107 @@
+{
+  "selected_session": {
+    "events": [
+      {
+        "seconds": 24.3,
+        "sound": "match",
+        "score": 0.9916
+      },
+      {
+        "seconds": 34.2,
+        "sound": "match",
+        "score": 1.0
+      },
+      {
+        "seconds": 57.3,
+        "sound": "match",
+        "score": 1.0
+      },
+      {
+        "seconds": 72.6,
+        "sound": "match",
+        "score": 0.9525
+      },
+      {
+        "seconds": 109.3,
+        "sound": "match",
+        "score": 1.0
+      },
+      {
+        "seconds": 120.4,
+        "sound": "match",
+        "score": 1.0
+      }
+    ],
+    "max_scores": {
+      "match": 1.0,
+      "stadium": 0.8006865382194519
+    },
+    "duration_seconds": 133.0
+  },
+  "independent_session_1": {
+    "events": [
+      {
+        "seconds": 79.2,
+        "sound": "match",
+        "score": 0.9918
+      }
+    ],
+    "max_scores": {
+      "match": 0.9917675852775574,
+      "stadium": 0.804742157459259
+    },
+    "duration_seconds": 155.3
+  },
+  "independent_session_2": {
+    "events": [
+      {
+        "seconds": 32.7,
+        "sound": "match",
+        "score": 0.9399
+      }
+    ],
+    "max_scores": {
+      "match": 0.9399309158325195,
+      "stadium": 0.7967901229858398
+    },
+    "duration_seconds": 1039.8
+  },
+  "previous_confirmed": {
+    "events": [
+      {
+        "seconds": 160.7,
+        "sound": "match",
+        "score": 1.0
+      }
+    ],
+    "max_scores": {
+      "match": 1.0,
+      "stadium": 0.8225367665290833
+    },
+    "duration_seconds": 170.1
+  },
+  "door_sounds": {
+    "events": [],
+    "max_scores": {
+      "match": 0.7410413026809692,
+      "stadium": 0.8122247457504272
+    },
+    "duration_seconds": 75.8
+  },
+  "background_recording": {
+    "events": [],
+    "max_scores": {
+      "match": 0.6983963251113892,
+      "stadium": 0.8185902237892151
+    },
+    "duration_seconds": 642.0
+  },
+  "unresolved_55s_candidate": {
+    "events": [],
+    "max_scores": {
+      "match": 0.713573694229126,
+      "stadium": 0.810987114906311
+    },
+    "duration_seconds": 83.5
+  }
+}
