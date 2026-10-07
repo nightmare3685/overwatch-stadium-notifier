@@ -36,22 +36,21 @@ ENGLISH = {
     'マッチが見つかりました！': 'Match found!',
     'この表示は5秒後に自動で消えます': 'This message disappears automatically after 5 seconds.',
     '音声取得中… {duration}': 'Capturing audio… {duration}',
-    '音声受信 {duration} / 入力ピーク {db:.0f} dBFS / 区間最大 ② {match:.2f}・③ {stadium:.2f}':
-        'Audio received {duration} / peak {db:.0f} dBFS / interval max ② {match:.2f} · ③ {stadium:.2f}',
+    '音声受信 {duration} / 入力ピーク {db:.0f} dBFS / 区間最大 {match:.2f}':
+        'Audio received {duration} / peak {db:.0f} dBFS / interval max {match:.2f}',
     'マッチが見つかりました！ {sound} ({score:.2f})': 'Match found! {sound} ({score:.2f})',
     '音声入力エラー — 停止しました': 'Audio input error — stopped',
     'エラー: {error}\nOverwatchを確認して検知を再開してください。':
         'Error: {error}\nCheck Overwatch and restart detection.',
     '音声取得終了 — {duration}': 'Audio capture ended — {duration}',
-    '監視終了: 受信 {duration} / 最大一致度 ② {match:.2f}・③ {stadium:.2f}':
-        'Detection ended: received {duration} / max similarity ② {match:.2f} · ③ {stadium:.2f}',
+    '監視終了: 受信 {duration} / 最大一致度 {match:.2f}':
+        'Detection ended: received {duration} / max similarity {match:.2f}',
     '停止中': 'Stopped',
     '音声データ待ち — OW側で音が鳴っているか確認してください':
         'Waiting for audio — check that Overwatch is playing sound',
     '音声データが5秒以上届いていません。OWが無音の場合もこの表示になります。':
         'No audio received for over 5 seconds. Overwatch may be silent.',
-    '② マッチ成立音': '② Match-found sound',
-    '③ スタジアムだ！': '③ Stadium voice (Japanese)',
+    'マッチ成立音': 'Match-found sound',
 }
 
 

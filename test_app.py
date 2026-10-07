@@ -4,6 +4,8 @@ import tkinter as tk
 import unittest
 from unittest.mock import patch
 from app import App
+from detector import Detector, LABELS
+import numpy as np
 
 
 class SilentAudio:
@@ -43,6 +45,14 @@ class DiagnosticTests(unittest.TestCase):
         self.assertNotIn('マッチが見つかりました', log)
         self.assertAlmostEqual(self.app.received_seconds, 1.)
 
+    def test_only_match_sound_is_loaded_and_scored(self):
+        detector = Detector()
+        self.assertEqual(set(LABELS), {'match'})
+        self.assertTrue(all(key.split('__', 1)[0] == 'match' for key in detector.templates))
+        events, scores = detector.feed(np.zeros(16000, dtype=np.float32))
+        self.assertEqual(set(scores), {'match'})
+        self.assertEqual(events, [])
+
     def test_start_failure_is_logged(self):
         with patch('app.find_overwatch', side_effect=ValueError('OW is not running')), patch('app.messagebox.showerror'):
             self.app.start()
@@ -52,7 +62,7 @@ class DiagnosticTests(unittest.TestCase):
         for _ in range(25):
             self.app.messages.put(('input', .1))
         self.app.messages.put(('diagnostic', {'seconds': 2.5, 'db': -12,
-                                             'scores': {'match': .4, 'stadium': .2}}))
+                                             'scores': {'match': .4}}))
         self.app.poll()
         self.assertEqual(self.app.input_status.get(), '音声取得中… 2秒')
         self.assertEqual(self.app.tabs.index(self.app.tabs.select()), 0)
@@ -86,7 +96,7 @@ class DiagnosticTests(unittest.TestCase):
     def test_language_switch_preserves_capture_and_notification_timer(self):
         self.app.messages.put(('status', 123))
         self.app.messages.put(('input', 65))
-        self.app.messages.put(('scores', {'match': .95, 'stadium': .2}))
+        self.app.messages.put(('scores', {'match': .95}))
         self.app.messages.put(('event', {'sound': 'match', 'score': .95}))
         self.app.poll()
         timer = self.app.notification_timer

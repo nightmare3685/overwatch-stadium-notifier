@@ -8,7 +8,7 @@ import numpy as np
 RATE = 16000
 HOP = 160
 FRAME = 640
-LABELS = {'match': '② マッチ成立音', 'stadium': '③ スタジアムだ！'}
+LABELS = {'match': 'マッチ成立音'}
 
 
 def mono_resample(samples, rate):
@@ -55,7 +55,7 @@ class Detector:
             self.templates = {key: archive[key].copy() for key in archive.files
                               if key.split('__', 1)[0] in LABELS}
         if not all(key in self.templates for key in LABELS):
-            raise ValueError('②・③の基本テンプレートが必要です。')
+            raise ValueError('マッチ成立音の基本テンプレートが必要です。')
         for template in self.templates.values():
             if template.ndim != 2 or template.shape[1] != 64 or not len(template) or not np.isfinite(template).all():
                 raise ValueError('音声テンプレートの形式が不正です。')

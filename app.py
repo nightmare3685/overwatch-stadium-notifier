@@ -96,7 +96,7 @@ class App:
         self.notification_hint = tk.StringVar(value='')
         ttk.Label(monitor, textvariable=self.notification_hint, anchor='center',
                   wraplength=740).pack(fill='x', pady=(0, 12))
-        self.scores = tk.StringVar(value='② —   ③ —')
+        self.scores = tk.StringVar(value='—')
         ttk.Label(details, textvariable=self.scores, wraplength=630).pack(anchor='w')
         self.log = tk.Text(details, height=10, state='disabled', wrap='word',
                            font=(self.font_family, 11), padx=10, pady=8, spacing1=3, spacing3=3)
@@ -143,7 +143,7 @@ class App:
         self.render_log()
 
     def render_scores(self):
-        self.scores.set('② —   ③ —' if self.current_scores is None else
+        self.scores.set('—' if self.current_scores is None else
                         '   '.join(f'{self.tr(LABELS[k])}: {v:.2f}'
                                    for k, v in self.current_scores.items()))
 
@@ -167,7 +167,7 @@ class App:
         self.last_wait_log = self.last_input
         self.set_text(self.input_status, '音声受信: 接続待ち')
         self.current_scores = None
-        self.scores.set('② —   ③ —')
+        self.scores.set('—')
         self.append('検知開始を受付: Overwatch PID {pid} / しきい値 {threshold:.2f}', pid=pid, threshold=threshold)
         self.start_button.config(state='disabled')
         self.stop_button.config(state='normal')
@@ -259,7 +259,7 @@ class App:
                 elif kind == 'diagnostic':
                     for key, score in value['scores'].items():
                         self.maximum_scores[key] = max(self.maximum_scores[key], score)
-                    self.append('音声受信 {duration} / 入力ピーク {db:.0f} dBFS / 区間最大 ② {match:.2f}・③ {stadium:.2f}',
+                    self.append('音声受信 {duration} / 入力ピーク {db:.0f} dBFS / 区間最大 {match:.2f}',
                                 seconds=value['seconds'], db=value['db'], **value['scores'])
                 elif kind == 'scores':
                     for key, score in value.items():
@@ -274,7 +274,7 @@ class App:
                     self.append('エラー: {error}\nOverwatchを確認して検知を再開してください。', error=value)
                 elif kind == 'done':
                     self.set_text(self.input_status, '音声取得終了 — {duration}', seconds=self.received_seconds)
-                    self.append('監視終了: 受信 {duration} / 最大一致度 ② {match:.2f}・③ {stadium:.2f}',
+                    self.append('監視終了: 受信 {duration} / 最大一致度 {match:.2f}',
                                 seconds=self.received_seconds, **self.maximum_scores)
                     self.start_button.config(state='normal')
                     self.stop_button.config(state='disabled')

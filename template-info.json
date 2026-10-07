@@ -10,7 +10,6 @@
     4
   ],
   "threshold": 0.9,
-  "stadium_template_retained": true,
   "previous_confirmed_match_templates_retained": true,
   "samples": [
     {
@@ -38,5 +37,8 @@
       "duration_seconds": 0.54
     }
   ],
-  "contains_waveform_audio": false
+  "contains_waveform_audio": false,
+  "active_detection_targets": [
+    "match"
+  ]
 }
