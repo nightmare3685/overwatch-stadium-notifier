@@ -1,12 +1,33 @@
 """Send text only to Discord. Never include URLs or server error bodies in errors."""
 import json
 import re
+import sys
+from pathlib import Path
 from urllib import request, error
 from urllib.parse import urlsplit
 
 
 class NotificationError(Exception):
     pass
+
+
+def read_webhook_file(path=None):
+    if path is None:
+        folder = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
+        path = folder / 'webhook.txt'
+    try:
+        with Path(path).open('r', encoding='utf-8-sig') as stream:
+            content = stream.read(4097)
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError):
+        raise NotificationError('webhook.txtを読み込めません。UTF-8で保存してください。') from None
+    lines = content.strip().splitlines()
+    if len(content) > 4096 or len(lines) != 1:
+        raise NotificationError('webhook.txtにはWebhook URLだけを1行で記入してください。')
+    url = lines[0].strip()
+    validate_webhook(url)
+    return url
 
 
 def validate_webhook(url):
