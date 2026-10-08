@@ -1,5 +1,18 @@
 """UI translations only; changing language does not change audio templates."""
 ENGLISH = {
+    'webhook.txtを再読み込み': 'Reload webhook.txt',
+    '同じフォルダのwebhook.txtからURLを読み込めます（UTF-8・URLのみ1行）。':
+        'Load a URL from webhook.txt beside the app (UTF-8, one URL line).',
+    '入力欄の変更はファイルへ保存しません。自動通知はチェックをオンにしてください。':
+        'Edits are not saved to the file. Check the box to enable automatic notifications.',
+    'webhook.txtを読み込めません。UTF-8で保存してください。':
+        'Cannot read webhook.txt. Save it as UTF-8.',
+    'webhook.txtにはWebhook URLだけを1行で記入してください。':
+        'webhook.txt must contain only one webhook URL line.',
+    'webhook.txtがありません。URLを直接入力することもできます。':
+        'webhook.txt was not found. You can also enter the URL directly.',
+    'webhook.txtを読み込みました。送信先をテスト送信で確認してください。':
+        'Loaded webhook.txt. Use Send test to check the destination.',
     'OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord通知は任意':
         'OW audio only • No microphone • No recordings • Optional Discord alerts',
     'Discord設定': 'Discord settings',
