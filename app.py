@@ -13,6 +13,7 @@ from pathlib import Path
 from process_audio import ProcessAudio, find_overwatch, OverwatchNotRunningError
 from detector import Detector, LABELS
 from language import translate, format_duration
+from discord_notify import validate_webhook, send_notification, NotificationError
 
 
 class App:
@@ -42,6 +43,8 @@ class App:
         self.closing = False
         self.notification_timer = None
         self.capture_active = False
+        self.discord_workers = []
+        self.last_discord_match = -float('inf')
         self.last_input = None
         self.last_wait_log = 0.
         self.received_seconds = 0.
@@ -67,7 +70,7 @@ class App:
         self.language_selector.pack(side='left', padx=8)
         self.language_selector.bind('<<ComboboxSelected>>', self.change_language)
         self.label(body, '音を検知して、ここに表示します', font=(self.font_family, 17, 'bold')).pack(anchor='w')
-        self.label(body, 'OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord送信なし', wraplength=780).pack(anchor='w', pady=(5, 14))
+        self.label(body, 'OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord通知は任意', wraplength=780).pack(anchor='w', pady=(5, 14))
         self.label(body, 'Overwatch.exe を自動選択 • YouTube / Discord の再生音は対象外', wraplength=780).pack(anchor='w')
         self.label(body, 'Overwatch起動中のみ利用できます。先にゲームを起動してください。', wraplength=780).pack(anchor='w')
         self.label(body, '動作確認はSteam版のみです。Battle.net版は未検証です。', wraplength=780).pack(anchor='w')
@@ -91,6 +94,24 @@ class App:
         details = ttk.Frame(self.tabs, padding=12)
         self.tabs.add(monitor, text='検知画面')
         self.tabs.add(details, text='詳細ログ')
+        discord = ttk.Frame(self.tabs, padding=12)
+        self.tabs.add(discord, text='Discord設定')
+        self.webhook_url = tk.StringVar()
+        self.discord_enabled = tk.BooleanVar(value=False)
+        self.label(discord, 'Discord Webhook URL').pack(anchor='w')
+        self.webhook_entry = ttk.Entry(discord, textvariable=self.webhook_url, show='*', font=(self.font_family, 11))
+        self.webhook_entry.pack(fill='x', pady=6)
+        self.discord_checkbox = ttk.Checkbutton(discord, text='検知時にDiscordへ送信する', variable=self.discord_enabled)
+        self.discord_checkbox.pack(anchor='w')
+        self.translated_widgets.append((self.discord_checkbox, '検知時にDiscordへ送信する'))
+        self.test_send_button = ttk.Button(discord, text='テスト送信', command=self.test_discord)
+        self.test_send_button.pack(anchor='w', pady=8)
+        self.translated_widgets.append((self.test_send_button, 'テスト送信'))
+        self.label(discord, '音声は送信しません。通知文と時刻だけを送信します。', wraplength=740).pack(anchor='w')
+        self.label(discord, 'URLは今回の起動中のみ保持します。再起動後は再入力してください。', wraplength=740).pack(anchor='w')
+        self.discord_status = tk.StringVar()
+        self.set_text(self.discord_status, 'Discord: 未送信')
+        ttk.Label(body, textvariable=self.discord_status, wraplength=780).pack(anchor='w', pady=(6, 0))
         self.input_status = tk.StringVar(value='音声受信: 未開始')
         ttk.Label(monitor, textvariable=self.input_status, font=(self.font_family, 16), wraplength=740).pack(anchor='w', pady=5)
         self.notification = tk.StringVar(value='停止中')
@@ -143,6 +164,7 @@ class App:
         self.stop_button.configure(text=self.tr('停止'))
         self.tabs.tab(0, text=self.tr('検知画面'))
         self.tabs.tab(1, text=self.tr('詳細ログ'))
+        self.tabs.tab(2, text=self.tr('Discord設定'))
         if self.notification_timer is not None:
             self.notification.set(self.tr('マッチが見つかりました！'))
             self.notification_hint.set(self.tr('この表示は10秒後に自動で消えます'))
@@ -155,6 +177,38 @@ class App:
         self.scores.set('—' if self.current_scores is None else
                         '   '.join(f'{self.tr(LABELS[k])}: {v:.2f}'
                                    for k, v in self.current_scores.items()))
+
+    def test_discord(self):
+        self.dispatch_discord(self.tr('OW通知のテスト送信です。') + '\n' + datetime.now().astimezone().isoformat(timespec='seconds'), test=True)
+
+    def dispatch_discord(self, content, test=False):
+        if self.closing:
+            return
+        try:
+            url = self.webhook_url.get().strip()
+            validate_webhook(url)
+        except NotificationError as exc:
+            self.set_text(self.discord_status, 'Discord: {error}', error=str(exc))
+            return
+        self.set_text(self.discord_status, 'Discord: 送信中…')
+        if test:
+            self.test_send_button.configure(state='disabled')
+
+        def send():
+            try:
+                send_notification(url, content)
+                result = 'テスト送信が完了しました。' if test else 'マッチ通知を送信しました。'
+            except NotificationError as exc:
+                result = str(exc)
+            except Exception:
+                # Never expose a token-bearing URL from an unexpected exception.
+                result = 'Discordへの送信に失敗しました。'
+            self.messages.put(('discord_result', (result, test)))
+
+        self.discord_workers = [worker for worker in self.discord_workers if worker.is_alive()]
+        worker = threading.Thread(target=send, daemon=True)
+        self.discord_workers.append(worker)
+        worker.start()
 
     def start(self):
         if self.worker and self.worker.is_alive():
@@ -295,8 +349,18 @@ class App:
                     self.current_scores = value.copy()
                     self.render_scores()
                 elif kind == 'event':
-                    self.show_match(value.get('detected_at'))
+                    detected_at = value.get('detected_at') or datetime.now().astimezone()
+                    self.show_match(detected_at)
                     self.append('マッチが見つかりました！ {sound} ({score:.2f})', sound=value['sound'], score=value['score'])
+                    if self.discord_enabled.get() and time.monotonic() - self.last_discord_match >= 30:
+                        self.last_discord_match = time.monotonic()
+                        self.dispatch_discord(self.tr('マッチが見つかりました！') + '\n' + detected_at.isoformat(timespec='seconds'))
+                elif kind == 'discord_result':
+                    result, test = value
+                    self.set_text(self.discord_status, 'Discord: {error}', error=result)
+                    self.append('Discord: {error}', error=result)
+                    if test:
+                        self.test_send_button.configure(state='normal')
                 elif kind == 'error':
                     self.set_text(self.status, '音声入力エラー — 停止しました')
                     self.append('エラー: {error}\nOverwatchを確認して検知を再開してください。', error=value)
