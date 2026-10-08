@@ -13,12 +13,13 @@ from pathlib import Path
 from process_audio import ProcessAudio, find_overwatch, OverwatchNotRunningError
 from detector import Detector, LABELS
 from language import translate, format_duration
-from discord_notify import validate_webhook, send_notification, NotificationError
+from discord_notify import validate_webhook, send_notification, NotificationError, read_webhook_file
 
 
 class App:
-    def __init__(self, root):
+    def __init__(self, root, webhook_path=None):
         self.root = root
+        self.webhook_path = webhook_path
         self.language = tk.StringVar(value='JPN')
         self.translated_widgets = []
         self.translated_values = {}
@@ -104,11 +105,17 @@ class App:
         self.discord_checkbox = ttk.Checkbutton(discord, text='検知時にDiscordへ送信する', variable=self.discord_enabled)
         self.discord_checkbox.pack(anchor='w')
         self.translated_widgets.append((self.discord_checkbox, '検知時にDiscordへ送信する'))
-        self.test_send_button = ttk.Button(discord, text='テスト送信', command=self.test_discord)
-        self.test_send_button.pack(anchor='w', pady=8)
+        discord_actions = ttk.Frame(discord)
+        discord_actions.pack(fill='x', pady=8)
+        self.test_send_button = ttk.Button(discord_actions, text='テスト送信', command=self.test_discord)
+        self.test_send_button.pack(side='left')
         self.translated_widgets.append((self.test_send_button, 'テスト送信'))
         self.label(discord, '音声は送信しません。通知文と時刻だけを送信します。', wraplength=740).pack(anchor='w')
-        self.label(discord, 'URLは今回の起動中のみ保持します。再起動後は再入力してください。', wraplength=740).pack(anchor='w')
+        reload_button = ttk.Button(discord_actions, text='webhook.txtを再読み込み', command=self.reload_webhook)
+        reload_button.pack(side='left', padx=8)
+        self.translated_widgets.append((reload_button, 'webhook.txtを再読み込み'))
+        self.label(discord, '同じフォルダのwebhook.txtからURLを読み込めます（UTF-8・URLのみ1行）。', wraplength=740).pack(anchor='w')
+        self.label(discord, '入力欄の変更はファイルへ保存しません。自動通知はチェックをオンにしてください。', wraplength=740).pack(anchor='w')
         self.discord_status = tk.StringVar()
         self.set_text(self.discord_status, 'Discord: 未送信')
         ttk.Label(body, textvariable=self.discord_status, wraplength=780).pack(anchor='w', pady=(6, 0))
@@ -132,6 +139,7 @@ class App:
         self.set_text(self.status, '停止中 — Overwatchを起動して「検知開始」を押してください')
         self.set_text(self.input_status, '音声受信: 未開始')
         self.append('準備完了。検知開始後は、開始・音声受信・一致度をここに表示します。')
+        self.reload_webhook(silent_missing=True)
         root.protocol('WM_DELETE_WINDOW', self.close)
         root.after(100, self.poll)
 
@@ -180,6 +188,19 @@ class App:
 
     def test_discord(self):
         self.dispatch_discord(self.tr('OW通知のテスト送信です。') + '\n' + datetime.now().astimezone().isoformat(timespec='seconds'), test=True)
+
+    def reload_webhook(self, silent_missing=False):
+        try:
+            url = read_webhook_file(self.webhook_path)
+        except NotificationError as exc:
+            self.set_text(self.discord_status, 'Discord: {error}', error=str(exc))
+            return
+        if url is None:
+            if not silent_missing:
+                self.set_text(self.discord_status, 'webhook.txtがありません。URLを直接入力することもできます。')
+            return
+        self.webhook_url.set(url)
+        self.set_text(self.discord_status, 'webhook.txtを読み込みました。送信先をテスト送信で確認してください。')
 
     def dispatch_discord(self, content, test=False):
         if self.closing:
