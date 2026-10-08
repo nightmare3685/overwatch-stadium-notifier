@@ -24,8 +24,8 @@ class App:
         self.log_entries = []
         self.current_scores = None
         root.title('Overwatch Stadium — 音検知テスト')
-        root.geometry('840x600')
-        root.minsize(840, 600)
+        root.geometry('840x660')
+        root.minsize(840, 660)
         available_fonts = set(tkfont.families(root))
         self.font_family = next((name for name in ('Meiryo', 'メイリオ', 'Yu Gothic UI')
                                  if name in available_fonts),
@@ -70,6 +70,7 @@ class App:
         self.label(body, 'OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord送信なし', wraplength=780).pack(anchor='w', pady=(5, 14))
         self.label(body, 'Overwatch.exe を自動選択 • YouTube / Discord の再生音は対象外', wraplength=780).pack(anchor='w')
         self.label(body, 'Overwatch起動中のみ利用できます。先にゲームを起動してください。', wraplength=780).pack(anchor='w')
+        self.label(body, '動作確認はSteam版のみです。Battle.net版は未検証です。', wraplength=780).pack(anchor='w')
         options = ttk.Frame(body)
         options.pack(fill='x', pady=12)
         self.label(options, '検知しきい値').pack(side='left')
@@ -144,7 +145,7 @@ class App:
         self.tabs.tab(1, text=self.tr('詳細ログ'))
         if self.notification_timer is not None:
             self.notification.set(self.tr('マッチが見つかりました！'))
-            self.notification_hint.set(self.tr('この表示は5秒後に自動で消えます'))
+            self.notification_hint.set(self.tr('この表示は10秒後に自動で消えます'))
         else:
             self.clear_notification()
         self.render_scores()
@@ -265,9 +266,9 @@ class App:
         self.set_text(self.last_match, '最後にマッチングした時間: {timestamp}',
                       timestamp=detected_at.strftime('%Y/%m/%d %H:%M:%S'))
         self.notification.set(self.tr('マッチが見つかりました！'))
-        self.notification_hint.set(self.tr('この表示は5秒後に自動で消えます'))
+        self.notification_hint.set(self.tr('この表示は10秒後に自動で消えます'))
         self.tabs.select(0)
-        self.notification_timer = self.root.after(5000, self.clear_notification)
+        self.notification_timer = self.root.after(10000, self.clear_notification)
 
     def poll(self):
         try:
