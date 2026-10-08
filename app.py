@@ -13,7 +13,7 @@ from pathlib import Path
 from process_audio import ProcessAudio, find_overwatch, OverwatchNotRunningError
 from detector import Detector, LABELS
 from language import translate, format_duration
-from discord_notify import validate_webhook, send_notification, NotificationError, read_webhook_file
+from discord_notify import validate_webhook, send_notification, NotificationError, read_webhook_file, validate_user_id
 
 
 class App:
@@ -26,8 +26,8 @@ class App:
         self.log_entries = []
         self.current_scores = None
         root.title('Overwatch Stadium — 音検知テスト')
-        root.geometry('840x660')
-        root.minsize(840, 660)
+        root.geometry('840x740')
+        root.minsize(840, 740)
         available_fonts = set(tkfont.families(root))
         self.font_family = next((name for name in ('Meiryo', 'メイリオ', 'Yu Gothic UI')
                                  if name in available_fonts),
@@ -102,6 +102,12 @@ class App:
         self.label(discord, 'Discord Webhook URL').pack(anchor='w')
         self.webhook_entry = ttk.Entry(discord, textvariable=self.webhook_url, show='*', font=(self.font_family, 11))
         self.webhook_entry.pack(fill='x', pady=6)
+        self.discord_user_id = tk.StringVar()
+        mention_row = ttk.Frame(discord)
+        mention_row.pack(fill='x', pady=4)
+        self.label(mention_row, '自分のDiscordユーザーID（任意）').pack(side='left')
+        ttk.Entry(mention_row, textvariable=self.discord_user_id, width=23,
+                  font=(self.font_family, 11)).pack(side='left', padx=8)
         self.discord_checkbox = ttk.Checkbutton(discord, text='検知時にDiscordへ送信する', variable=self.discord_enabled)
         self.discord_checkbox.pack(anchor='w')
         self.translated_widgets.append((self.discord_checkbox, '検知時にDiscordへ送信する'))
@@ -110,7 +116,7 @@ class App:
         self.test_send_button = ttk.Button(discord_actions, text='テスト送信', command=self.test_discord)
         self.test_send_button.pack(side='left')
         self.translated_widgets.append((self.test_send_button, 'テスト送信'))
-        self.label(discord, '音声は送信しません。通知文と時刻だけを送信します。', wraplength=740).pack(anchor='w')
+        self.label(discord, '音声は送信しません。通知文・時刻・入力したメンション先IDを送信します。', wraplength=740).pack(anchor='w')
         reload_button = ttk.Button(discord_actions, text='webhook.txtを再読み込み', command=self.reload_webhook)
         reload_button.pack(side='left', padx=8)
         self.translated_widgets.append((reload_button, 'webhook.txtを再読み込み'))
@@ -208,6 +214,7 @@ class App:
         try:
             url = self.webhook_url.get().strip()
             validate_webhook(url)
+            user_id = validate_user_id(self.discord_user_id.get())
         except NotificationError as exc:
             self.set_text(self.discord_status, 'Discord: {error}', error=str(exc))
             return
@@ -217,7 +224,7 @@ class App:
 
         def send():
             try:
-                send_notification(url, content)
+                send_notification(url, content, user_id)
                 result = 'テスト送信が完了しました。' if test else 'マッチ通知を送信しました。'
             except NotificationError as exc:
                 result = str(exc)
