@@ -48,9 +48,21 @@ class NoRedirect(request.HTTPRedirectHandler):
         return None
 
 
-def send_notification(url, content):
+def validate_user_id(user_id):
+    user_id = user_id.strip()
+    if user_id and (not re.fullmatch(r'[0-9]{17,20}', user_id) or int(user_id) >= 2**64):
+        raise NotificationError('メンション先には数字のユーザーIDを入力してください（空欄ならメンションなし）。')
+    return user_id
+
+
+def send_notification(url, content, user_id=''):
     endpoint = validate_webhook(url)
-    payload = json.dumps({'content': content, 'allowed_mentions': {'parse': []}},
+    user_id = validate_user_id(user_id)
+    mentions = {'parse': []}
+    if user_id:
+        content = f'<@{user_id}>\n' + content
+        mentions['users'] = [user_id]
+    payload = json.dumps({'content': content, 'allowed_mentions': mentions},
                          ensure_ascii=False).encode('utf-8')
     req = request.Request(endpoint, data=payload, method='POST', headers={
         'Content-Type': 'application/json', 'User-Agent': 'OverwatchStadiumNotifier/0.1'})
