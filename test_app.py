@@ -80,9 +80,9 @@ class DiagnosticTests(unittest.TestCase):
                                          'detected_at': datetime(2026, 10, 8, 12, 34, 56)}))
         self.app.poll()
         self.assertEqual(self.app.notification.get(), 'マッチが見つかりました！')
-        self.assertEqual(self.app.notification_hint.get(), 'この表示は5秒後に自動で消えます')
+        self.assertEqual(self.app.notification_hint.get(), 'この表示は10秒後に自動で消えます')
         self.assertEqual(self.app.tabs.index(self.app.tabs.select()), 0)
-        deadline = time.monotonic() + 5.2
+        deadline = time.monotonic() + 10.2
         while time.monotonic() < deadline:
             self.root.update()
             time.sleep(.02)
@@ -110,7 +110,7 @@ class DiagnosticTests(unittest.TestCase):
         self.app.change_language()
         self.assertEqual(self.app.input_status.get(), 'Capturing audio… 1m 5s')
         self.assertEqual(self.app.notification.get(), 'Match found!')
-        self.assertEqual(self.app.notification_hint.get(), 'This message disappears automatically after 5 seconds.')
+        self.assertEqual(self.app.notification_hint.get(), 'This message disappears automatically after 10 seconds.')
         self.assertEqual(self.app.start_button.cget('text'), 'Start detection')
         self.assertEqual(self.app.tabs.tab(1, 'text'), 'Detailed log')
         self.assertIn('Overwatch only (PID 123)', self.app.status.get())
