@@ -1,5 +1,10 @@
 """UI translations only; changing language does not change audio templates."""
 ENGLISH = {
+    '自分のDiscordユーザーID（任意）': 'Your Discord user ID (optional)',
+    '音声は送信しません。通知文・時刻・入力したメンション先IDを送信します。':
+        'No audio is sent. Only text, time and the optional mention user ID are sent.',
+    'メンション先には数字のユーザーIDを入力してください（空欄ならメンションなし）。':
+        'Enter a numeric user ID for mentions (leave blank for no mention).',
     'webhook.txtを再読み込み': 'Reload webhook.txt',
     '同じフォルダのwebhook.txtからURLを読み込めます（UTF-8・URLのみ1行）。':
         'Load a URL from webhook.txt beside the app (UTF-8, one URL line).',
