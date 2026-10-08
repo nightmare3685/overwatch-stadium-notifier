@@ -1,15 +1,32 @@
 """Offline tests: no requests are sent to Discord."""
 import json
 import io
+import tempfile
+from pathlib import Path
 import unittest
 from unittest.mock import patch, MagicMock
 from urllib.error import HTTPError, URLError
-from discord_notify import validate_webhook, send_notification, NotificationError, NoRedirect
+from discord_notify import validate_webhook, send_notification, NotificationError, NoRedirect, read_webhook_file
 
 URL = 'https://discord.com/api/webhooks/123/test_token'
 
 
 class DiscordTests(unittest.TestCase):
+    def test_webhook_file_missing_bom_and_invalid_contents(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'webhook.txt'
+            self.assertIsNone(read_webhook_file(path))
+            path.write_text(URL + '\n', encoding='utf-8-sig')
+            self.assertEqual(read_webhook_file(path), URL)
+            for content in ('', URL + '\n' + URL, 'x' * 4097, 'https://example.com/secret'):
+                path.write_text(content, encoding='utf-8')
+                with self.assertRaises(NotificationError) as caught:
+                    read_webhook_file(path)
+                self.assertNotIn('test_token', str(caught.exception))
+            path.write_bytes(b'\xff\xff')
+            with self.assertRaises(NotificationError):
+                read_webhook_file(path)
+
     def test_rejects_other_destinations_without_network(self):
         with patch('discord_notify.request.build_opener') as opener:
             for url in ('', 'http://discord.com/api/webhooks/123/x',
