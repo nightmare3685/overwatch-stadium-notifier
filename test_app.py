@@ -1,6 +1,8 @@
 """GUI diagnostic lifecycle tests; no live audio capture."""
 import time
 import threading
+import tempfile
+from pathlib import Path
 import tkinter as tk
 import unittest
 from unittest.mock import patch
@@ -29,13 +31,33 @@ class DiagnosticTests(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
         self.root.withdraw()
-        self.app = App(self.root)
+        self.webhook_directory = tempfile.TemporaryDirectory()
+        self.webhook_path = Path(self.webhook_directory.name) / 'webhook.txt'
+        self.app = App(self.root, webhook_path=self.webhook_path)
 
     def tearDown(self):
         for timer in self.root.tk.call('after', 'info'):
             self.root.after_cancel(timer)
         self.root.update_idletasks()
         self.root.destroy()
+        self.webhook_directory.cleanup()
+
+    def test_webhook_file_load_and_reload_never_enable_or_send(self):
+        url = 'https://discord.com/api/webhooks/123/test_token'
+        self.webhook_path.write_text(url, encoding='utf-8')
+        with patch('app.send_notification') as send:
+            loaded = App(self.root, webhook_path=self.webhook_path)
+            self.assertEqual(loaded.webhook_url.get(), url)
+            self.assertFalse(loaded.discord_enabled.get())
+            loaded.webhook_url.set('manual value')
+            self.assertEqual(self.webhook_path.read_text(), url)
+            loaded.reload_webhook()
+            self.assertEqual(loaded.webhook_url.get(), url)
+            self.webhook_path.write_text('invalid', encoding='utf-8')
+            loaded.reload_webhook()
+            self.assertEqual(loaded.webhook_url.get(), url)
+            self.assertNotIn('test_token', loaded.discord_status.get())
+            send.assert_not_called()
 
     def test_successful_capture_logs_without_detection(self):
         with patch('app.find_overwatch', return_value=123), patch('app.ProcessAudio', SilentAudio):
