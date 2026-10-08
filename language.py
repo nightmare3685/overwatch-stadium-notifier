@@ -1,5 +1,28 @@
 """UI translations only; changing language does not change audio templates."""
 ENGLISH = {
+    'OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord通知は任意':
+        'OW audio only • No microphone • No recordings • Optional Discord alerts',
+    'Discord設定': 'Discord settings',
+    '検知時にDiscordへ送信する': 'Send to Discord when a match is detected',
+    'テスト送信': 'Send test',
+    '音声は送信しません。通知文と時刻だけを送信します。':
+        'No audio is sent. Only notification text and the time are sent.',
+    'URLは今回の起動中のみ保持します。再起動後は再入力してください。':
+        'The URL is kept only for this session. Enter it again after restarting.',
+    'Discord: 未送信': 'Discord: no messages sent',
+    'Discord: 送信中…': 'Discord: sending…',
+    'OW通知のテスト送信です。': 'This is an Overwatch notification test.',
+    'テスト送信が完了しました。': 'Test message sent.',
+    'マッチ通知を送信しました。': 'Match notification sent.',
+    'DiscordのWebhook URLを入力してください。': 'Enter a valid Discord webhook URL.',
+    'Discordへの送信を確認できませんでした。': 'Could not confirm delivery to Discord.',
+    'Discordの送信制限です。少し待ってから再送してください。':
+        'Discord rate limit reached. Wait before trying again.',
+    'Webhookが無効、または送信権限がありません。URLを確認してください。':
+        'The webhook is invalid or access is denied. Check the URL.',
+    'Discordへの送信に失敗しました。': 'Failed to send to Discord.',
+    'Discordに接続できませんでした。通信環境を確認してください。':
+        'Could not connect to Discord. Check your internet connection.',
     '動作確認はSteam版のみです。Battle.net版は未検証です。':
         'Tested only with the Steam version. The Battle.net version has not been tested.',
     'マッチ成立音を検知中…': 'Listening for the match-found sound…',
