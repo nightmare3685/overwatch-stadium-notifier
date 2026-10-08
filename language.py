@@ -1,5 +1,7 @@
 """UI translations only; changing language does not change audio templates."""
 ENGLISH = {
+    '動作確認はSteam版のみです。Battle.net版は未検証です。':
+        'Tested only with the Steam version. The Battle.net version has not been tested.',
     'マッチ成立音を検知中…': 'Listening for the match-found sound…',
     '最後にマッチングした時間: まだ検知していません': 'Last match detected: none yet',
     '最後にマッチングした時間: {timestamp}': 'Last match detected: {timestamp}',
@@ -42,7 +44,7 @@ ENGLISH = {
     'OW専用の音声取得を開始しています…': 'Connecting to Overwatch audio…',
     '検知中 — Overwatchのみ (PID {pid})': 'Detecting — Overwatch only (PID {pid})',
     'マッチが見つかりました！': 'Match found!',
-    'この表示は5秒後に自動で消えます': 'This message disappears automatically after 5 seconds.',
+    'この表示は10秒後に自動で消えます': 'This message disappears automatically after 10 seconds.',
     '音声取得中… {duration}': 'Capturing audio… {duration}',
     '音声受信 {duration} / 入力ピーク {db:.0f} dBFS / 区間最大 {match:.2f}':
         'Audio received {duration} / peak {db:.0f} dBFS / interval max {match:.2f}',
