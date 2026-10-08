@@ -66,6 +66,22 @@ class DiscordTests(unittest.TestCase):
     def test_redirects_are_not_followed(self):
         self.assertIsNone(NoRedirect().redirect_request(None, None, 302, '', {}, 'https://example.com'))
 
+    def test_only_selected_user_can_be_mentioned(self):
+        user_id = '123456789012345678'
+        with patch('discord_notify.request.build_opener') as builder:
+            builder.return_value.open.return_value.__enter__.return_value.status = 200
+            send_notification(URL, 'test @everyone <@987654321098765432>', user_id)
+            payload = json.loads(builder.return_value.open.call_args.args[0].data)
+            self.assertTrue(payload['content'].startswith(f'<@{user_id}>\n'))
+            self.assertEqual(payload['allowed_mentions'], {'parse': [], 'users': [user_id]})
+
+    def test_invalid_mention_never_sends(self):
+        with patch('discord_notify.request.build_opener') as builder:
+            for user_id in ('@everyone', '<@123456789012345678>', 'name', '99999999999999999999'):
+                with self.assertRaises(NotificationError):
+                    send_notification(URL, 'test', user_id)
+            builder.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
