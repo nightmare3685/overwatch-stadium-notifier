@@ -1,5 +1,6 @@
 """GUI diagnostic lifecycle tests; no live audio capture."""
 import time
+import threading
 import tkinter as tk
 import unittest
 from unittest.mock import patch
@@ -176,6 +177,62 @@ class DiagnosticTests(unittest.TestCase):
         self.app.poll()
         self.assertIn('音声データ待ち', self.app.input_status.get())
         self.assertIn('5秒以上', self.app.log.get('1.0', 'end'))
+
+    def test_discord_is_opt_in_and_duplicate_events_are_suppressed(self):
+        event = {'sound': 'match', 'score': .95}
+        with patch('app.send_notification') as send:
+            self.app.messages.put(('event', event))
+            self.app.poll()
+            send.assert_not_called()
+            self.app.webhook_url.set('https://discord.com/api/webhooks/123/test_token')
+            self.app.discord_enabled.set(True)
+            self.app.messages.put(('event', event))
+            self.app.messages.put(('event', event))
+            self.app.poll()
+            for worker in self.app.discord_workers:
+                worker.join(timeout=2)
+            self.app.poll()
+            send.assert_called_once()
+            self.assertIn('マッチが見つかりました！', send.call_args.args[1])
+            self.assertIn('マッチ通知を送信しました', self.app.discord_status.get())
+            self.assertNotIn('test_token', self.app.log.get('1.0', 'end'))
+
+    def test_discord_test_send_does_not_require_game_or_enable_auto_send(self):
+        self.app.webhook_url.set('https://discord.com/api/webhooks/123/test_token')
+        with patch('app.send_notification') as send:
+            self.app.test_discord()
+            for worker in self.app.discord_workers:
+                worker.join(timeout=2)
+            self.app.poll()
+            send.assert_called_once()
+        self.assertFalse(self.app.discord_enabled.get())
+        self.assertIn('テスト送信が完了', self.app.discord_status.get())
+        self.app.language.set('ENG')
+        self.app.change_language()
+        self.assertIn('Test message sent.', self.app.discord_status.get())
+
+    def test_slow_discord_failure_does_not_block_audio_or_leak_url(self):
+        entered, release = threading.Event(), threading.Event()
+        def slow_send(*_):
+            entered.set()
+            release.wait(timeout=3)
+            raise RuntimeError('https://discord.com/api/webhooks/123/test_token')
+        self.app.webhook_url.set('https://discord.com/api/webhooks/123/test_token')
+        with patch('app.send_notification', side_effect=slow_send):
+            self.app.test_discord()
+            try:
+                self.assertTrue(entered.wait(timeout=2))
+                self.app.messages.put(('input', 65))
+                self.app.poll()
+                self.assertEqual(self.app.input_status.get(), '音声取得中… 1分5秒')
+            finally:
+                release.set()
+                for worker in self.app.discord_workers:
+                    worker.join(timeout=2)
+            self.app.poll()
+        self.assertIn('送信に失敗', self.app.discord_status.get())
+        self.assertNotIn('test_token', self.app.log.get('1.0', 'end'))
+        self.assertEqual(str(self.app.test_send_button.cget('state')), 'normal')
 
 
 if __name__ == '__main__':
