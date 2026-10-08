@@ -10,7 +10,7 @@ Overwatchのマッチ成立音を、その場で解析するWindows用ツール�
 - **音源ファイル不要** — 検知用の特徴データを同梱。利用者による録音の準備は不要です。
 - **音声ファイルを保存しない** — 監視中の音は短いメモリ内バッファで処理します。
 
-現在は試用版です。検知結果はアプリ内に表示します。Discord通知は含まれていません。
+現在は試用版です。検知結果はアプリ内に表示します。任意でDiscordへの通知を有効にできます。
 
 **動作確認はSteam版Overwatchのみです。Battle.net版は未検証です。**
 
@@ -39,7 +39,18 @@ Overwatchのマッチ成立音を、その場で解析するWindows用ツール�
 - Python 3.10以降（Tkinter付き）
 - Windows付属の.NET Framework 4.x
 
-**初回セットアップにはインターネット接続が必要です。** `start.bat` が専用の仮想環境にNumPyを取得します。準備後の音声取得・解析・アプリ内表示はローカルで動作し、このツールはネットワーク通信を行いません。Overwatch本体の通信は別です。
+**初回セットアップにはインターネット接続が必要です。** `start.bat` が専用の仮想環境にNumPyを取得します。準備後の音声取得・解析・アプリ内表示はローカルで動作します。Discordのテスト送信時、または通知を有効にして検知した場合のみ、通知文と時刻をDiscordへ送ります。Overwatch本体の通信は別です。
+
+## Discord通知
+
+1. 「Discord設定」タブのWebhook URL欄に、DiscordでコピーしたURLを貼り付けます。
+2. 「テスト送信」を押して、送信先チャンネルに届くことを確認します。ゲームの起動は不要です。
+3. 「検知時にDiscordへ送信する」をオンにします。
+4. Overwatchを起動して「検知開始」を押します。
+
+通知文と検知時刻だけを送信し、音声・一致度・診断ログは送信しません。通常のテキストチャンネル向けです。自動通知は30秒間の重複送信を抑制します。送信に失敗した場合は画面に表示し、自動再送はしません。テスト送信はチェックがオフでも送信します。
+
+URLは伏せ字で表示し、今回の起動中だけメモリに保持します。再起動後は再入力・再有効化してください。URLはログや設定ファイルに保存しません。スマートフォンのプッシュ通知はDiscord側の通知設定にも依存します。
 
 ## 何を検知する？
 
@@ -79,7 +90,7 @@ Overwatchのマッチ成立音を、その場で解析するWindows用ツール�
 Python / NumPyによる周波数特徴の照合と、Windowsのプロセス別WASAPIループバックを使います。`ProcessAudio.cs` は同梱ヘルパーのソースです。ゲームへのDLL注入やゲームメモリの読み取りは行いません。ヘルパーを変更したら `build-audio.bat` で再ビルドできます。
 
 ```powershell
-.venv\Scripts\python.exe -m unittest test_app test_process_audio -v
+.venv\Scripts\python.exe -m unittest test_app test_process_audio test_discord_notify -v
 ```
 
 [Microsoftのアプリ別音声取得サンプル](https://learn.microsoft.com/en-us/samples/microsoft/windows-classic-samples/applicationloopbackaudio-sample/)
