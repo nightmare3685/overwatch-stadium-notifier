@@ -221,12 +221,14 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_discord_test_send_does_not_require_game_or_enable_auto_send(self):
         self.app.webhook_url.set('https://discord.com/api/webhooks/123/test_token')
+        self.app.discord_user_id.set('123456789012345678')
         with patch('app.send_notification') as send:
             self.app.test_discord()
             for worker in self.app.discord_workers:
                 worker.join(timeout=2)
             self.app.poll()
             send.assert_called_once()
+            self.assertEqual(send.call_args.args[2], '123456789012345678')
         self.assertFalse(self.app.discord_enabled.get())
         self.assertIn('テスト送信が完了', self.app.discord_status.get())
         self.app.language.set('ENG')
