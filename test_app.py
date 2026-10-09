@@ -33,7 +33,8 @@ class DiagnosticTests(unittest.TestCase):
         self.root.withdraw()
         self.webhook_directory = tempfile.TemporaryDirectory()
         self.webhook_path = Path(self.webhook_directory.name) / 'webhook.txt'
-        self.app = App(self.root, webhook_path=self.webhook_path)
+        self.line_path = Path(self.webhook_directory.name) / 'line-settings.txt'
+        self.app = App(self.root, webhook_path=self.webhook_path, line_path=self.line_path)
 
     def tearDown(self):
         for timer in self.root.tk.call('after', 'info'):
@@ -46,7 +47,7 @@ class DiagnosticTests(unittest.TestCase):
         url = 'https://discord.com/api/webhooks/123/test_token'
         self.webhook_path.write_text(url, encoding='utf-8')
         with patch('app.send_notification') as send:
-            loaded = App(self.root, webhook_path=self.webhook_path)
+            loaded = App(self.root, webhook_path=self.webhook_path, line_path=self.line_path)
             self.assertEqual(loaded.webhook_url.get(), url)
             self.assertFalse(loaded.discord_enabled.get())
             loaded.webhook_url.set('manual value')
@@ -57,6 +58,21 @@ class DiagnosticTests(unittest.TestCase):
             loaded.reload_webhook()
             self.assertEqual(loaded.webhook_url.get(), url)
             self.assertNotIn('test_token', loaded.discord_status.get())
+            send.assert_not_called()
+
+    def test_line_file_reload_does_not_send_or_enable(self):
+        self.line_path.write_text('CHANNEL_ACCESS_TOKEN=fake-token==\nUSER_ID=U' + '1' * 32, encoding='utf-8-sig')
+        with patch('app.send_line_notification') as send:
+            loaded = App(self.root, webhook_path=self.webhook_path, line_path=self.line_path)
+            self.assertEqual(loaded.line_token.get(), 'fake-token==')
+            self.assertFalse(loaded.line_enabled.get())
+            self.line_path.write_text('CHANNEL_ACCESS_TOKEN=changed-token\nUSER_ID=U' + '2' * 32, encoding='utf-8')
+            loaded.reload_line()
+            self.assertEqual(loaded.line_token.get(), 'changed-token')
+            self.line_path.write_text('bad-secret-content', encoding='utf-8')
+            loaded.reload_line()
+            self.assertEqual(loaded.line_token.get(), 'changed-token')
+            self.assertNotIn('bad-secret-content', loaded.line_status.get())
             send.assert_not_called()
 
     def test_successful_capture_logs_without_detection(self):
