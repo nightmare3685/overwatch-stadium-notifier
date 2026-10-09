@@ -14,6 +14,7 @@ from process_audio import ProcessAudio, find_overwatch, OverwatchNotRunningError
 from detector import Detector, LABELS
 from language import translate, format_duration
 from discord_notify import validate_webhook, send_notification, NotificationError, read_webhook_file, validate_user_id
+from line_notify import validate_line_settings, send_line_notification
 
 
 class App:
@@ -46,6 +47,8 @@ class App:
         self.capture_active = False
         self.discord_workers = []
         self.last_discord_match = -float('inf')
+        self.line_workers = []
+        self.last_line_match = -float('inf')
         self.last_input = None
         self.last_wait_log = 0.
         self.received_seconds = 0.
@@ -71,7 +74,7 @@ class App:
         self.language_selector.pack(side='left', padx=8)
         self.language_selector.bind('<<ComboboxSelected>>', self.change_language)
         self.label(body, '音を検知して、ここに表示します', font=(self.font_family, 17, 'bold')).pack(anchor='w')
-        self.label(body, 'OWの音だけを使用 • マイク不使用 • 録音保存なし • Discord通知は任意', wraplength=780).pack(anchor='w', pady=(5, 14))
+        self.label(body, 'OWの音だけを使用 • マイク不使用 • 録音保存なし • 外部通知は任意', wraplength=780).pack(anchor='w', pady=(5, 14))
         self.label(body, 'Overwatch.exe を自動選択 • YouTube / Discord の再生音は対象外', wraplength=780).pack(anchor='w')
         self.label(body, 'Overwatch起動中のみ利用できます。先にゲームを起動してください。', wraplength=780).pack(anchor='w')
         self.label(body, '動作確認はSteam版のみです。Battle.net版は未検証です。', wraplength=780).pack(anchor='w')
@@ -125,6 +128,26 @@ class App:
         self.discord_status = tk.StringVar()
         self.set_text(self.discord_status, 'Discord: 未送信')
         ttk.Label(body, textvariable=self.discord_status, wraplength=780).pack(anchor='w', pady=(6, 0))
+        line = ttk.Frame(self.tabs, padding=12)
+        self.tabs.add(line, text='LINE設定')
+        self.line_token = tk.StringVar()
+        self.line_user_id = tk.StringVar()
+        self.line_enabled = tk.BooleanVar(value=False)
+        self.label(line, 'チャネルアクセストークン').pack(anchor='w')
+        ttk.Entry(line, textvariable=self.line_token, show='*', font=(self.font_family, 11)).pack(fill='x', pady=4)
+        self.label(line, '送信先ユーザーID（Uから始まるID）').pack(anchor='w')
+        ttk.Entry(line, textvariable=self.line_user_id, font=(self.font_family, 11)).pack(fill='x', pady=4)
+        line_checkbox = ttk.Checkbutton(line, text='検知時にLINEへ送信する', variable=self.line_enabled)
+        line_checkbox.pack(anchor='w')
+        self.translated_widgets.append((line_checkbox, '検知時にLINEへ送信する'))
+        self.line_test_button = ttk.Button(line, text='LINEへテスト送信', command=self.test_line)
+        self.line_test_button.pack(anchor='w', pady=6)
+        self.translated_widgets.append((self.line_test_button, 'LINEへテスト送信'))
+        self.label(line, '公式アカウントを友だち追加してください。テスト送信もメッセージ通数に含まれます。', wraplength=740).pack(anchor='w')
+        self.label(line, '音声は送信しません。トークンとIDは保存せず、再起動時に再入力します。', wraplength=740).pack(anchor='w')
+        self.line_status = tk.StringVar()
+        self.set_text(self.line_status, 'LINE: 未送信')
+        ttk.Label(body, textvariable=self.line_status, wraplength=780).pack(anchor='w')
         self.input_status = tk.StringVar(value='音声受信: 未開始')
         ttk.Label(monitor, textvariable=self.input_status, font=(self.font_family, 16), wraplength=740).pack(anchor='w', pady=5)
         self.notification = tk.StringVar(value='停止中')
@@ -179,6 +202,7 @@ class App:
         self.tabs.tab(0, text=self.tr('検知画面'))
         self.tabs.tab(1, text=self.tr('詳細ログ'))
         self.tabs.tab(2, text=self.tr('Discord設定'))
+        self.tabs.tab(3, text=self.tr('LINE設定'))
         if self.notification_timer is not None:
             self.notification.set(self.tr('マッチが見つかりました！'))
             self.notification_hint.set(self.tr('この表示は10秒後に自動で消えます'))
@@ -194,6 +218,36 @@ class App:
 
     def test_discord(self):
         self.dispatch_discord(self.tr('OW通知のテスト送信です。') + '\n' + datetime.now().astimezone().isoformat(timespec='seconds'), test=True)
+
+    def test_line(self):
+        self.dispatch_line(self.tr('OW通知のテスト送信です。') + '\n' + datetime.now().astimezone().isoformat(timespec='seconds'), test=True)
+
+    def dispatch_line(self, content, test=False):
+        if self.closing:
+            return
+        try:
+            token, user_id = validate_line_settings(self.line_token.get(), self.line_user_id.get())
+        except NotificationError as exc:
+            self.set_text(self.line_status, 'LINE: {error}', error=str(exc))
+            return
+        self.set_text(self.line_status, 'LINE: 送信中…')
+        if test:
+            self.line_test_button.configure(state='disabled')
+
+        def send():
+            try:
+                send_line_notification(token, user_id, content)
+                result = 'LINEが送信要求を受け付けました。スマホで到着を確認してください。'
+            except NotificationError as exc:
+                result = str(exc)
+            except Exception:
+                result = 'LINEへの送信に失敗しました。'
+            self.messages.put(('line_result', (result, test)))
+
+        self.line_workers = [worker for worker in self.line_workers if worker.is_alive()]
+        worker = threading.Thread(target=send, daemon=True)
+        self.line_workers.append(worker)
+        worker.start()
 
     def reload_webhook(self, silent_missing=False):
         try:
@@ -383,6 +437,15 @@ class App:
                     if self.discord_enabled.get() and time.monotonic() - self.last_discord_match >= 30:
                         self.last_discord_match = time.monotonic()
                         self.dispatch_discord(self.tr('マッチが見つかりました！') + '\n' + detected_at.isoformat(timespec='seconds'))
+                    if self.line_enabled.get() and time.monotonic() - self.last_line_match >= 30:
+                        self.last_line_match = time.monotonic()
+                        self.dispatch_line(self.tr('マッチが見つかりました！') + '\n' + detected_at.isoformat(timespec='seconds'))
+                elif kind == 'line_result':
+                    result, test = value
+                    self.set_text(self.line_status, 'LINE: {error}', error=result)
+                    self.append('LINE: {error}', error=result)
+                    if test:
+                        self.line_test_button.configure(state='normal')
                 elif kind == 'discord_result':
                     result, test = value
                     self.set_text(self.discord_status, 'Discord: {error}', error=result)
