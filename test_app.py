@@ -258,6 +258,44 @@ class DiagnosticTests(unittest.TestCase):
         self.assertNotIn('test_token', self.app.log.get('1.0', 'end'))
         self.assertEqual(str(self.app.test_send_button.cget('state')), 'normal')
 
+    def test_line_is_opt_in_and_independent_of_discord(self):
+        event = {'sound': 'match', 'score': .95}
+        self.app.line_token.set('fake-channel-token')
+        self.app.line_user_id.set('U' + '1' * 32)
+        with patch('app.send_line_notification') as send, patch('app.send_notification') as discord:
+            self.app.messages.put(('event', event))
+            self.app.poll()
+            send.assert_not_called()
+            self.app.line_enabled.set(True)
+            self.app.messages.put(('event', event))
+            self.app.messages.put(('event', event))
+            self.app.poll()
+            for worker in self.app.line_workers:
+                worker.join(timeout=2)
+            self.app.poll()
+            send.assert_called_once()
+            discord.assert_not_called()
+            self.assertIn('マッチが見つかりました', send.call_args.args[2])
+            self.assertIn('受け付けました', self.app.line_status.get())
+            self.assertNotIn('fake-channel-token', self.app.log.get('1.0', 'end'))
+
+    def test_line_test_and_sanitized_failure(self):
+        self.app.line_token.set('fake-channel-token')
+        self.app.line_user_id.set('U' + '1' * 32)
+        with patch('app.send_line_notification', side_effect=RuntimeError('fake-channel-token')) as send:
+            self.app.test_line()
+            for worker in self.app.line_workers:
+                worker.join(timeout=2)
+            self.app.poll()
+            send.assert_called_once()
+        self.assertFalse(self.app.line_enabled.get())
+        self.assertIn('送信に失敗', self.app.line_status.get())
+        self.assertNotIn('fake-channel-token', self.app.log.get('1.0', 'end'))
+        self.app.language.set('ENG')
+        self.app.change_language()
+        self.assertEqual(self.app.tabs.tab(3, 'text'), 'LINE settings')
+        self.assertIn('Failed to send to LINE.', self.app.line_status.get())
+
 
 if __name__ == '__main__':
     unittest.main()
