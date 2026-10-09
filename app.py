@@ -14,13 +14,14 @@ from process_audio import ProcessAudio, find_overwatch, OverwatchNotRunningError
 from detector import Detector, LABELS
 from language import translate, format_duration
 from discord_notify import validate_webhook, send_notification, NotificationError, read_webhook_file, validate_user_id
-from line_notify import validate_line_settings, send_line_notification
+from line_notify import validate_line_settings, send_line_notification, read_line_settings
 
 
 class App:
-    def __init__(self, root, webhook_path=None):
+    def __init__(self, root, webhook_path=None, line_path=None):
         self.root = root
         self.webhook_path = webhook_path
+        self.line_path = line_path
         self.language = tk.StringVar(value='JPN')
         self.translated_widgets = []
         self.translated_values = {}
@@ -140,11 +141,16 @@ class App:
         line_checkbox = ttk.Checkbutton(line, text='検知時にLINEへ送信する', variable=self.line_enabled)
         line_checkbox.pack(anchor='w')
         self.translated_widgets.append((line_checkbox, '検知時にLINEへ送信する'))
-        self.line_test_button = ttk.Button(line, text='LINEへテスト送信', command=self.test_line)
-        self.line_test_button.pack(anchor='w', pady=6)
+        line_actions = ttk.Frame(line)
+        line_actions.pack(fill='x', pady=6)
+        self.line_test_button = ttk.Button(line_actions, text='LINEへテスト送信', command=self.test_line)
+        self.line_test_button.pack(side='left')
+        line_reload = ttk.Button(line_actions, text='line-settings.txtを再読み込み', command=self.reload_line)
+        line_reload.pack(side='left', padx=8)
+        self.translated_widgets.append((line_reload, 'line-settings.txtを再読み込み'))
         self.translated_widgets.append((self.line_test_button, 'LINEへテスト送信'))
         self.label(line, '公式アカウントを友だち追加してください。テスト送信もメッセージ通数に含まれます。', wraplength=740).pack(anchor='w')
-        self.label(line, '音声は送信しません。トークンとIDは保存せず、再起動時に再入力します。', wraplength=740).pack(anchor='w')
+        self.label(line, '同じフォルダのline-settings.txtから設定を読み込みます。入力欄の変更は保存しません。', wraplength=740).pack(anchor='w')
         self.line_status = tk.StringVar()
         self.set_text(self.line_status, 'LINE: 未送信')
         ttk.Label(body, textvariable=self.line_status, wraplength=780).pack(anchor='w')
@@ -169,6 +175,7 @@ class App:
         self.set_text(self.input_status, '音声受信: 未開始')
         self.append('準備完了。検知開始後は、開始・音声受信・一致度をここに表示します。')
         self.reload_webhook(silent_missing=True)
+        self.reload_line(silent_missing=True)
         root.protocol('WM_DELETE_WINDOW', self.close)
         root.after(100, self.poll)
 
@@ -248,6 +255,20 @@ class App:
         worker = threading.Thread(target=send, daemon=True)
         self.line_workers.append(worker)
         worker.start()
+
+    def reload_line(self, silent_missing=False):
+        try:
+            settings = read_line_settings(self.line_path)
+        except NotificationError as exc:
+            self.set_text(self.line_status, 'LINE: {error}', error=str(exc))
+            return
+        if settings is None:
+            if not silent_missing:
+                self.set_text(self.line_status, 'line-settings.txtがありません。設定を直接入力することもできます。')
+            return
+        self.line_token.set(settings[0])
+        self.line_user_id.set(settings[1])
+        self.set_text(self.line_status, 'line-settings.txtを読み込みました。テスト送信で確認してください。')
 
     def reload_webhook(self, silent_missing=False):
         try:
