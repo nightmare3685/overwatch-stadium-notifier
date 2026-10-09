@@ -1,5 +1,32 @@
 """UI translations only; changing language does not change audio templates."""
 ENGLISH = {
+    'OWの音だけを使用 • マイク不使用 • 録音保存なし • 外部通知は任意':
+        'OW audio only • No microphone • No recordings • Optional external alerts',
+    'LINE設定': 'LINE settings',
+    'チャネルアクセストークン': 'Channel access token',
+    '送信先ユーザーID（Uから始まるID）': 'Recipient user ID (starts with U)',
+    '検知時にLINEへ送信する': 'Send to LINE when a match is detected',
+    'LINEへテスト送信': 'Send LINE test',
+    '公式アカウントを友だち追加してください。テスト送信もメッセージ通数に含まれます。':
+        'Add the official account as a friend. Test messages also count toward your quota.',
+    '音声は送信しません。トークンとIDは保存せず、再起動時に再入力します。':
+        'No audio is sent. Token and ID are not saved; enter them again after restarting.',
+    'LINE: 未送信': 'LINE: no requests sent',
+    'LINE: 送信中…': 'LINE: sending…',
+    'LINEが送信要求を受け付けました。スマホで到着を確認してください。':
+        'LINE accepted the request. Check delivery on your phone.',
+    'LINEのチャネルアクセストークンを入力してください。': 'Enter a LINE channel access token.',
+    'LINEの送信先にはUから始まるユーザーIDを入力してください。':
+        'Enter a LINE user ID starting with U as the recipient.',
+    'LINEへの送信を確認できませんでした。': 'Could not confirm the LINE request.',
+    'LINEの認証に失敗しました。トークンと利用権限を確認してください。':
+        'LINE authentication failed. Check your token and permissions.',
+    'LINEの送信先IDとチャネルの設定を確認してください。': 'Check the LINE recipient ID and channel settings.',
+    'LINEの送信上限または送信制限に達しました。利用状況を確認してください。':
+        'LINE quota or rate limit reached. Check your usage.',
+    'LINEへの送信に失敗しました。': 'Failed to send to LINE.',
+    'LINEに接続できませんでした。通信環境を確認してください。':
+        'Could not connect to LINE. Check your internet connection.',
     '自分のDiscordユーザーID（任意）': 'Your Discord user ID (optional)',
     '音声は送信しません。通知文・時刻・入力したメンション先IDを送信します。':
         'No audio is sent. Only text, time and the optional mention user ID are sent.',
