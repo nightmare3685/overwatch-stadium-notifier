@@ -2,6 +2,12 @@
 ENGLISH = {
     'OWの音だけを使用 • マイク不使用 • 録音保存なし • 外部通知は任意':
         'OW audio only • No microphone • No recordings • Optional external alerts',
+    'line-settings.txtを再読み込み': 'Reload line-settings.txt',
+    'line-settings.txtを読み込めません。UTF-8で保存してください。': 'Cannot read line-settings.txt. Save it as UTF-8.',
+    'line-settings.txtの形式を確認してください。': 'Check the format of line-settings.txt.',
+    'line-settings.txtがありません。設定を直接入力することもできます。': 'line-settings.txt was not found. You can enter settings directly.',
+    'line-settings.txtを読み込みました。テスト送信で確認してください。': 'Loaded line-settings.txt. Use Send test to check delivery.',
+    '同じフォルダのline-settings.txtから設定を読み込みます。入力欄の変更は保存しません。': 'Load settings from line-settings.txt beside the app. Edits here are not saved.',
     'LINE設定': 'LINE settings',
     'チャネルアクセストークン': 'Channel access token',
     '送信先ユーザーID（Uから始まるID）': 'Recipient user ID (starts with U)',
