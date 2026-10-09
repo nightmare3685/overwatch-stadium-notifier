@@ -5,7 +5,8 @@ $packageNames = @(
     'process_audio.py', 'ProcessAudio.cs', 'ProcessAudio.exe', 'build-audio.bat',
     'start.bat', 'requirements.txt', 'templates.npz', 'template-info.json',
     'validation-results.json', 'README.md', 'PRIVACY.md', 'RELEASE-NOTES.md',
-    'test_app.py', 'test_process_audio.py', 'test_discord_notify.py', 'build-package.ps1'
+    'test_app.py', 'test_process_audio.py', 'test_discord_notify.py', 'build-package.ps1',
+    'line_notify.py', 'test_line_notify.py'
 )
 $packagePaths = @($packageNames | ForEach-Object { Join-Path $PSScriptRoot $_ })
 $packageDestination = Join-Path (Split-Path $PSScriptRoot -Parent) 'overwatch-stadium-notifier.zip'
